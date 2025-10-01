@@ -22,7 +22,22 @@ That's it! You now have a fully functional authentication server running.
 
 ## 💻 Quick Start without Docker
 
-### 1. Install Dependencies
+### Option 1: Use Startup Scripts (Easiest)
+
+```bash
+# Start the server (auto-installs dependencies)
+./start_server.sh
+```
+
+In a new terminal:
+```bash
+# Start the client
+./start_client.sh
+```
+
+### Option 2: Manual Setup
+
+#### 1. Install Dependencies
 
 ```bash
 # Create virtual environment
@@ -33,7 +48,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Start the Server
+#### 2. Start the Server
 
 ```bash
 cd server

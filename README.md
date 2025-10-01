@@ -38,6 +38,27 @@ A comprehensive client-server authentication system with email verification, sup
 
 ### Local Development
 
+#### Quick Start (Unix/Linux/Mac)
+
+Use the startup scripts for the easiest setup:
+
+```bash
+# Clone and navigate to repository
+git clone https://github.com/ULFHEDNAR-JAKE/OEN-Project_MUx1.git
+cd OEN-Project_MUx1
+
+# Start server (auto-creates venv and installs dependencies)
+./start_server.sh
+```
+
+In a new terminal:
+```bash
+# Start client
+./start_client.sh
+```
+
+#### Manual Setup
+
 1. **Clone the repository**
    ```bash
    git clone https://github.com/ULFHEDNAR-JAKE/OEN-Project_MUx1.git
@@ -55,7 +76,7 @@ A comprehensive client-server authentication system with email verification, sup
    pip install -r requirements.txt
    ```
 
-4. **Configure environment variables**
+4. **Configure environment variables (optional)**
    ```bash
    cp .env.example .env
    # Edit .env with your configuration

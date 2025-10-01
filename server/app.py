@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -8,7 +8,7 @@ import os
 from datetime import datetime, timedelta
 from email_service import send_verification_email
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///auth.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -38,6 +38,11 @@ class User(db.Model):
         self.verification_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
         self.verification_code_expires = datetime.utcnow() + timedelta(hours=24)
         return self.verification_code
+
+# Serve web interface
+@app.route('/')
+def index():
+    return send_from_directory('static', 'index.html')
 
 # REST API Endpoints
 @app.route('/api/health', methods=['GET'])

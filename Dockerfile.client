@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy client code
+COPY client/ ./client/
+
+WORKDIR /app/client
+
+# Run the client interactively
+CMD ["python", "client.py"]

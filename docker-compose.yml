@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: auth_server
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-default_secret_key_change_in_production}
+      - DATABASE_URL=sqlite:////app/data/auth.db
+      - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - FROM_EMAIL=${FROM_EMAIL:-}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - auth_network
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    container_name: auth_client
+    environment:
+      - SERVER_URL=http://server:5000
+    depends_on:
+      - server
+    networks:
+      - auth_network
+    stdin_open: true
+    tty: true
+
+networks:
+  auth_network:
+    driver: bridge

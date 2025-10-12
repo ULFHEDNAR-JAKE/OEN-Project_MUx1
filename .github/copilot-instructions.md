@@ -17,7 +17,7 @@ OEN-Project_MUx1 is a comprehensive client-server authentication system with ema
 - **Language**: Python 3.11+
 - **Web Framework**: Flask 3.0.0
 - **Real-time Communication**: Flask-SocketIO 5.3.5, python-socketio 5.10.0
-- **Database**: SQLite (via Flask-SQLAlchemy 3.1.1), extensible to PostgreSQL
+- **Database**: SQLite (via Flask-SQLAlchemy 3.1.1), extensible to PostgreSQL via DATABASE_URL
 - **Security**: Werkzeug 3.0.1 for password hashing
 - **CORS**: Flask-CORS 4.0.0
 - **HTTP Client**: requests 2.31.0
@@ -178,7 +178,7 @@ When making changes, update relevant documentation:
 - User profile management
 - OAuth2 integration (Google, GitHub)
 - Persistent sessions with tokens
-- PostgreSQL migration and setup (requires psycopg2 driver)
+- PostgreSQL migration and setup (requires psycopg2-binary driver)
 - Kubernetes deployment guide
 
 **Nice to Have**:
@@ -217,7 +217,7 @@ When making changes, update relevant documentation:
 - CORS enabled for all origins
 
 **Production**:
-- Consider PostgreSQL database (requires psycopg2 driver and `DATABASE_URL` configuration)
+- Consider PostgreSQL database (requires psycopg2-binary driver: `pip install psycopg2-binary`, then set `DATABASE_URL` to PostgreSQL connection string)
 - Configure real SMTP server for email delivery
 - Set strong `SECRET_KEY`
 - Restrict CORS origins

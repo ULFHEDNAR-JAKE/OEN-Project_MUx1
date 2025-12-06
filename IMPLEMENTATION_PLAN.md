@@ -665,6 +665,8 @@ For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 |---------|------|---------|--------|
 | 1.0 | 2024-12-06 | Initial implementation plan | Copilot Agent |
 
+*Note: Update this table when making significant changes to the implementation plan.*
+
 ## Conclusion
 
 The OEN-Project_MUx1 has a solid foundation with all core authentication features implemented. The next phase focuses on security enhancements, testing, and production readiness. This plan provides a clear roadmap for contributors and maintainers to guide the project's evolution.

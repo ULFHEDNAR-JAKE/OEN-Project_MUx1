@@ -15,12 +15,12 @@ OEN-Project_MUx1 is a comprehensive client-server authentication system with ema
 ## Technology Stack
 
 - **Language**: Python 3.11+
-- **Web Framework**: Flask 3.0.0
-- **Real-time Communication**: Flask-SocketIO 5.3.5, python-socketio 5.10.0
+- **Web Framework**: Flask 3.1.2
+- **Real-time Communication**: Flask-SocketIO 5.5.1, python-socketio 5.14.3
 - **Database**: SQLite (via Flask-SQLAlchemy 3.1.1), extensible to PostgreSQL (requires psycopg2-binary and DATABASE_URL)
-- **Security**: Werkzeug 3.0.1 for password hashing
-- **CORS**: Flask-CORS 4.0.0
-- **HTTP Client**: requests 2.31.0
+- **Security**: Werkzeug 3.1.3 for password hashing
+- **CORS**: Flask-CORS 6.0.1
+- **HTTP Client**: requests 2.32.5
 - **Deployment**: Docker and Docker Compose
 
 ## Project Structure

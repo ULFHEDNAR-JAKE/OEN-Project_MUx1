@@ -12,6 +12,14 @@ A comprehensive client-server authentication system with email verification, sup
 - **Database**: SQLite with SQLAlchemy ORM
 - **Security**: Password hashing with Werkzeug
 
+## Documentation
+
+- **[Implementation Plan](IMPLEMENTATION_PLAN.md)**: Project roadmap and development plan
+- **[Architecture](ARCHITECTURE.md)**: Detailed system architecture and design
+- **[Quick Start](QUICKSTART.md)**: Get started quickly
+- **[Contributing](CONTRIBUTING.md)**: Contribution guidelines
+- **[Security](SECURITY.md)**: Security policies and reporting
+
 ## Architecture
 
 ```

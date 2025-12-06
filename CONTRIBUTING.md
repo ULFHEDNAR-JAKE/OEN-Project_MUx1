@@ -2,6 +2,10 @@
 
 Thank you for your interest in contributing to the OEN-Project_MUx1 authentication system! This document provides guidelines and instructions for contributing.
 
+## Before You Start
+
+Please review the [Implementation Plan](IMPLEMENTATION_PLAN.md) to understand the project roadmap, current status, and planned features. This will help you identify areas where contributions are most needed.
+
 ## Getting Started
 
 ### Development Setup

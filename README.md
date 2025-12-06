@@ -14,6 +14,7 @@ A comprehensive client-server authentication system with email verification, sup
 
 ## Documentation
 
+- **[Project Status](PROJECT_STATUS.md)**: Current status and quick reference
 - **[Implementation Plan](IMPLEMENTATION_PLAN.md)**: Project roadmap and development plan
 - **[Architecture](ARCHITECTURE.md)**: Detailed system architecture and design
 - **[Quick Start](QUICKSTART.md)**: Get started quickly

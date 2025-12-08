@@ -6,6 +6,7 @@
 
 ## Quick Links
 
+- 🔍 [Problem Analysis](PROBLEM_ANALYSIS.md) - **30 Issues Identified**
 - 📋 [Full Implementation Plan](IMPLEMENTATION_PLAN.md)
 - 🏗️ [Architecture Documentation](ARCHITECTURE.md)
 - 🚀 [Quick Start Guide](QUICKSTART.md)
@@ -125,13 +126,33 @@ Test Coverage: 0% (To be implemented)
 
 ## Known Issues
 
-> No critical issues currently identified
+> **See [PROBLEM_ANALYSIS.md](PROBLEM_ANALYSIS.md) for comprehensive issue analysis**
 
-### Minor Issues
+### Summary (30 Total Issues)
 
-- [ ] No automated test coverage
-- [ ] Limited error handling in some edge cases
-- [ ] Development mode uses SQLite (production should use PostgreSQL)
+| Severity | Count | Top Issues |
+|----------|-------|-----------|
+| 🔴 Critical | 3 | No rate limiting, Weak CORS, No input validation |
+| 🟠 High | 8 | No account lockout, No HTTPS enforcement, No session management |
+| 🟡 Medium | 12 | Debug mode enabled, No logging, Missing security headers |
+| 🟢 Low | 7 | Inconsistent error format, No API versioning, Missing docstrings |
+
+### Critical Issues (Immediate Action Required)
+
+1. **No Rate Limiting** - Authentication endpoints vulnerable to brute force attacks
+2. **Weak CORS Configuration** - Allows all origins (`*`), enabling CSRF attacks
+3. **No Input Validation** - Email, username, password not properly validated
+
+### High Priority Issues
+
+4. No account lockout after failed login attempts
+5. Passwords transmitted without HTTPS enforcement
+6. No session management or JWT tokens
+7. Email verification code rate limiting missing
+8. Verification codes stored in plaintext
+9. No logging or audit trail
+10. Database errors expose internal information
+11. No CSRF protection
 
 ## Deployment Status
 

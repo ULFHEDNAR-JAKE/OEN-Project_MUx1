@@ -82,7 +82,7 @@ python3 -m http.server 8000
 ## Customization Quick Tips
 
 ### 1. Update the Welcome Message
-Open `index.html` and find this section (around line 200):
+Open `index.html` and find this section (around line 307):
 ```html
 <div class="welcome-message">
     <p><strong>🎉 Congratulations on joining GitHub!</strong></p>

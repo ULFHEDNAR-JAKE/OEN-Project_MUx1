@@ -128,7 +128,7 @@
         }
 
         .welcome-message {
-            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
             border-left: 4px solid #667eea;
             padding: 20px;
             border-radius: 10px;
@@ -425,7 +425,14 @@
         // Add keyboard support for accessibility
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && e.target.classList.contains('feature-card')) {
-                createRipple(e);
+                // Simulate a click event for keyboard users
+                const rect = e.target.getBoundingClientRect();
+                const simulatedEvent = {
+                    currentTarget: e.target,
+                    clientX: rect.left + rect.width / 2,
+                    clientY: rect.top + rect.height / 2
+                };
+                createRipple(simulatedEvent);
             }
         });
 

@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OEN Terminal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            background: #0a0a0a;
+            font-family: 'Courier New', monospace;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+
+        .header {
+            color: #00ff00;
+            text-align: center;
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            margin-bottom: 10px;
+        }
+
+        .header h1 {
+            font-size: 14px;
+            letter-spacing: 2px;
+        }
+
+        .header .ascii-art {
+            font-size: 10px;
+            color: #00aa00;
+            white-space: pre;
+            line-height: 1.1;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .status-bar .connected {
+            color: #00ff00;
+        }
+
+        .status-bar .disconnected {
+            color: #ff4444;
+        }
+
+        .status-bar .user {
+            color: #00aaff;
+        }
+
+        .terminal-container {
+            flex: 1;
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #0d0d0d;
+        }
+
+        #terminal {
+            height: 100%;
+        }
+
+        .footer {
+            padding: 5px 10px;
+            color: #555;
+            font-size: 11px;
+            text-align: center;
+            border-top: 1px solid #333;
+            margin-top: 10px;
+        }
+
+        .footer a {
+            color: #666;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            color: #00ff00;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <pre class="ascii-art">
+  ___  _____ _   _   _   _      _                      _    
+ / _ \| ____| \ | | | \ | | ___| |___      _____  _ __| | __
+| | | |  _| |  \| | |  \| |/ _ \ __\ \ /\ / / _ \| '__| |/ /
+| |_| | |___| |\  | | |\  |  __/ |_ \ V  V / (_) | |  |   < 
+ \___/|_____|_| \_| |_| \_|\___|\__| \_/\_/ \___/|_|  |_|\_\
+            </pre>
+            <h1>[ AUTHENTICATION TERMINAL v1.0 ]</h1>
+        </div>
+
+        <div class="status-bar">
+            <span>Connection: <span id="conn-status" class="disconnected">OFFLINE</span></span>
+            <span>User: <span id="user-status" class="user">guest</span></span>
+            <span>Session: <span id="session-time">00:00:00</span></span>
+        </div>
+
+        <div class="terminal-container">
+            <div id="terminal"></div>
+        </div>
+
+        <div class="footer">
+            Type <strong>help</strong> for available commands | 
+            <a href="/">Switch to GUI</a>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // OEN Terminal Client - MUD-Style Interface
+        // ============================================================
+
+        class OENTerminal {
+            constructor() {
+                this.socket = null;
+                this.term = null;
+                this.fitAddon = null;
+                this.currentLine = '';
+                this.commandHistory = [];
+                this.historyIndex = -1;
+                this.currentUser = null;
+                this.characters = [];
+                this.sessionStart = null;
+                this.sessionTimer = null;
+                this.promptStr = '> ';
+                this.inputMode = 'normal'; // 'normal', 'password', 'confirm'
+                this.pendingCallback = null;
+                this.tempEmail = null;
+
+                this.init();
+            }
+
+            init() {
+                this.initTerminal();
+                this.initSocket();
+                this.showWelcome();
+                this.prompt();
+                this.startSessionTimer();
+            }
+
+            initTerminal() {
+                this.term = new Terminal({
+                    cursorBlink: true,
+                    cursorStyle: 'block',
+                    fontFamily: '"Courier New", monospace',
+                    fontSize: 14,
+                    theme: {
+                        background: '#0d0d0d',
+                        foreground: '#00ff00',
+                        cursor: '#00ff00',
+                        cursorAccent: '#0d0d0d',
+                        selection: 'rgba(0, 255, 0, 0.3)',
+                        black: '#0d0d0d',
+                        red: '#ff4444',
+                        green: '#00ff00',
+                        yellow: '#ffff00',
+                        blue: '#00aaff',
+                        magenta: '#ff00ff',
+                        cyan: '#00ffff',
+                        white: '#ffffff',
+                        brightBlack: '#666666',
+                        brightRed: '#ff6666',
+                        brightGreen: '#66ff66',
+                        brightYellow: '#ffff66',
+                        brightBlue: '#66aaff',
+                        brightMagenta: '#ff66ff',
+                        brightCyan: '#66ffff',
+                        brightWhite: '#ffffff'
+                    }
+                });
+
+                this.fitAddon = new FitAddon.FitAddon();
+                this.term.loadAddon(this.fitAddon);
+
+                const container = document.getElementById('terminal');
+                this.term.open(container);
+                this.fitAddon.fit();
+
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    this.fitAddon.fit();
+                });
+
+                // Handle keyboard input
+                this.term.onKey(({ key, domEvent }) => {
+                    this.handleKey(key, domEvent);
+                });
+
+                // Paste support
+                this.term.attachCustomKeyEventHandler((event) => {
+                    if (event.ctrlKey && event.key === 'v') {
+                        navigator.clipboard.readText().then(text => {
+                            if (this.inputMode !== 'password') {
+                                this.currentLine += text;
+                                this.term.write(text);
+                            }
+                        });
+                        return false;
+                    }
+                    return true;
+                });
+            }
+
+            initSocket() {
+                this.socket = io();
+
+                this.socket.on('connect', () => {
+                    this.updateConnectionStatus(true);
+                    this.sessionStart = new Date();
+                });
+
+                this.socket.on('disconnect', () => {
+                    this.updateConnectionStatus(false);
+                    this.writeLine('\r\n\x1b[31m*** Connection lost ***\x1b[0m');
+                    this.prompt();
+                });
+
+                this.socket.on('connected', (data) => {
+                    // Silent connect acknowledgment
+                });
+
+                this.socket.on('auth_success', (data) => {
+                    // Only show full login screen if not already logged in via HTTP
+                    if (this.currentUser && this.currentUser.username === data.user.username) {
+                        // Already showed login info from HTTP, just silently update session
+                        return;
+                    }
+                    
+                    this.currentUser = data.user;
+                    this.characters = data.characters || [];
+                    this.updateUserStatus(this.currentUser.username);
+                    
+                    // Display login success with server status
+                    this.writeLine(`\x1b[32m*** Authenticated as ${this.currentUser.username} ***\x1b[0m`);
+                    this.writeLine('');
+                    
+                    // Show server status
+                    if (data.server_status) {
+                        const status = data.server_status;
+                        this.writeLine('\x1b[33m┌─────────────────────────────────────┐\x1b[0m');
+                        this.writeLine('\x1b[33m│\x1b[0m       \x1b[1mSERVER STATUS\x1b[0m                \x1b[33m│\x1b[0m');
+                        this.writeLine('\x1b[33m├─────────────────────────────────────┤\x1b[0m');
+                        this.writeLine(`\x1b[33m│\x1b[0m  Status:  \x1b[32m${status.status.toUpperCase().padEnd(23)}\x1b[0m\x1b[33m│\x1b[0m`);
+                        this.writeLine(`\x1b[33m│\x1b[0m  Uptime:  ${status.uptime.padEnd(23)}\x1b[33m│\x1b[0m`);
+                        this.writeLine(`\x1b[33m│\x1b[0m  Online:  ${String(status.connected_users + ' user(s)').padEnd(23)}\x1b[33m│\x1b[0m`);
+                        this.writeLine('\x1b[33m└─────────────────────────────────────┘\x1b[0m');
+                        this.writeLine('');
+                    }
+                    
+                    // Show characters list
+                    if (this.characters.length > 0) {
+                        this.writeLine('\x1b[36m┌─────────────────────────────────────┐\x1b[0m');
+                        this.writeLine('\x1b[36m│\x1b[0m       \x1b[1mYOUR CHARACTERS\x1b[0m               \x1b[36m│\x1b[0m');
+                        this.writeLine('\x1b[36m├─────────────────────────────────────┤\x1b[0m');
+                        this.characters.forEach((char, idx) => {
+                            this.writeLine(`\x1b[36m│\x1b[0m  ${idx + 1}. \x1b[33m${char.name.padEnd(15)}\x1b[0m Lv.${String(char.level).padEnd(3)} \x1b[36m│\x1b[0m`);
+                        });
+                        this.writeLine('\x1b[36m└─────────────────────────────────────┘\x1b[0m');
+                        this.writeLine('');
+                        this.writeLine('Type \x1b[33mcharacters\x1b[0m to view details or \x1b[33mcreate <name>\x1b[0m to make a new one.');
+                    } else {
+                        this.writeLine('\x1b[33mYou have no characters yet.\x1b[0m');
+                        this.writeLine('Type \x1b[36mcreate <name>\x1b[0m to create your first character!');
+                    }
+                    this.writeLine('');
+                    
+                    this.prompt();
+                });
+
+                this.socket.on('auth_error', (data) => {
+                    this.writeLine(`\x1b[31mError: ${data.error}\x1b[0m`);
+                    this.prompt();
+                });
+
+                this.socket.on('message', (data) => {
+                    this.writeLine(`\x1b[36m[Server] ${JSON.stringify(data)}\x1b[0m`);
+                    this.prompt();
+                });
+
+                // Command response handler
+                this.socket.on('cmd_response', (data) => {
+                    if (data.output) {
+                        data.output.forEach(line => this.writeLine(line));
+                    }
+                    if (data.error) {
+                        this.writeLine(`\x1b[31m${data.error}\x1b[0m`);
+                    }
+                    this.prompt();
+                });
+            }
+
+            handleKey(key, domEvent) {
+                const keyCode = domEvent.keyCode;
+
+                // Enter
+                if (keyCode === 13) {
+                    this.term.write('\r\n');
+                    this.processInput(this.currentLine);
+                    if (this.inputMode !== 'password') {
+                        if (this.currentLine.trim()) {
+                            this.commandHistory.push(this.currentLine);
+                            this.historyIndex = this.commandHistory.length;
+                        }
+                    }
+                    this.currentLine = '';
+                    return;
+                }
+
+                // Backspace
+                if (keyCode === 8) {
+                    if (this.currentLine.length > 0) {
+                        this.currentLine = this.currentLine.slice(0, -1);
+                        this.term.write('\b \b');
+                    }
+                    return;
+                }
+
+                // Arrow Up - History
+                if (keyCode === 38 && this.inputMode === 'normal') {
+                    if (this.historyIndex > 0) {
+                        this.historyIndex--;
+                        this.replaceCurrentLine(this.commandHistory[this.historyIndex]);
+                    }
+                    return;
+                }
+
+                // Arrow Down - History
+                if (keyCode === 40 && this.inputMode === 'normal') {
+                    if (this.historyIndex < this.commandHistory.length - 1) {
+                        this.historyIndex++;
+                        this.replaceCurrentLine(this.commandHistory[this.historyIndex]);
+                    } else {
+                        this.historyIndex = this.commandHistory.length;
+                        this.replaceCurrentLine('');
+                    }
+                    return;
+                }
+
+                // Tab - Autocomplete (basic)
+                if (keyCode === 9) {
+                    domEvent.preventDefault();
+                    this.autocomplete();
+                    return;
+                }
+
+                // Ctrl+C - Cancel
+                if (domEvent.ctrlKey && keyCode === 67) {
+                    this.term.write('^C\r\n');
+                    this.currentLine = '';
+                    this.inputMode = 'normal';
+                    this.pendingCallback = null;
+                    this.prompt();
+                    return;
+                }
+
+                // Ctrl+L - Clear
+                if (domEvent.ctrlKey && keyCode === 76) {
+                    this.term.clear();
+                    this.prompt();
+                    return;
+                }
+
+                // Regular character
+                if (key.length === 1 && !domEvent.ctrlKey && !domEvent.altKey) {
+                    this.currentLine += key;
+                    if (this.inputMode === 'password') {
+                        this.term.write('*');
+                    } else {
+                        this.term.write(key);
+                    }
+                }
+            }
+
+            replaceCurrentLine(newLine) {
+                // Clear current line
+                const clearLen = this.currentLine.length;
+                this.term.write('\b'.repeat(clearLen) + ' '.repeat(clearLen) + '\b'.repeat(clearLen));
+                // Write new line
+                this.currentLine = newLine;
+                this.term.write(newLine);
+            }
+
+            autocomplete() {
+                const commands = ['help', 'login', 'signup', 'verify', 'logout', 'status', 
+                                  'server', 'characters', 'create', 'clear', 'who', 'whoami',
+                                  'say', 'quit', 'resend', 'ping', 'version'];
+                const partial = this.currentLine.toLowerCase();
+                const matches = commands.filter(cmd => cmd.startsWith(partial));
+                
+                if (matches.length === 1) {
+                    this.replaceCurrentLine(matches[0]);
+                } else if (matches.length > 1) {
+                    this.term.write('\r\n');
+                    this.writeLine(matches.join('  '));
+                    this.prompt();
+                    this.term.write(this.currentLine);
+                }
+            }
+
+            processInput(input) {
+                const trimmed = input.trim();
+
+                // Handle special input modes
+                if (this.inputMode === 'password' || this.inputMode === 'confirm') {
+                    if (this.pendingCallback) {
+                        this.pendingCallback(trimmed);
+                    }
+                    return;
+                }
+
+                if (!trimmed) {
+                    this.prompt();
+                    return;
+                }
+
+                // Parse command
+                const parts = trimmed.split(/\s+/);
+                const cmd = parts[0].toLowerCase();
+                const args = parts.slice(1);
+
+                this.executeCommand(cmd, args);
+            }
+
+            executeCommand(cmd, args) {
+                const commands = {
+                    'help': () => this.cmdHelp(args),
+                    '?': () => this.cmdHelp(args),
+                    'login': () => this.cmdLogin(args),
+                    'signup': () => this.cmdSignup(args),
+                    'verify': () => this.cmdVerify(args),
+                    'resend': () => this.cmdResend(args),
+                    'logout': () => this.cmdLogout(),
+                    'status': () => this.cmdStatus(),
+                    'server': () => this.cmdServer(),
+                    'who': () => this.cmdWho(),
+                    'whoami': () => this.cmdWhoami(),
+                    'characters': () => this.cmdCharacters(),
+                    'chars': () => this.cmdCharacters(),
+                    'create': () => this.cmdCreate(args),
+                    'clear': () => this.cmdClear(),
+                    'cls': () => this.cmdClear(),
+                    'say': () => this.cmdSay(args),
+                    'msg': () => this.cmdSay(args),
+                    'ping': () => this.cmdPing(),
+                    'quit': () => this.cmdQuit(),
+                    'exit': () => this.cmdQuit(),
+                    'version': () => this.cmdVersion(),
+                };
+
+                if (commands[cmd]) {
+                    commands[cmd]();
+                } else {
+                    this.writeLine(`\x1b[31mUnknown command: ${cmd}\x1b[0m`);
+                    this.writeLine('Type \x1b[33mhelp\x1b[0m for available commands.');
+                    this.prompt();
+                }
+            }
+
+            // ============================================================
+            // Commands
+            // ============================================================
+
+            cmdHelp(args) {
+                if (args.length > 0) {
+                    this.showCommandHelp(args[0]);
+                } else {
+                    this.showGeneralHelp();
+                }
+                this.prompt();
+            }
+
+            showGeneralHelp() {
+                const help = [
+                    '',
+                    '\x1b[33m╔══════════════════════════════════════════════════════════╗\x1b[0m',
+                    '\x1b[33m║\x1b[0m              \x1b[1mOEN TERMINAL COMMANDS\x1b[0m                      \x1b[33m║\x1b[0m',
+                    '\x1b[33m╠══════════════════════════════════════════════════════════╣\x1b[0m',
+                    '\x1b[33m║\x1b[0m  \x1b[32mAuthentication:\x1b[0m                                        \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    login [username]    - Log in to your account          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    signup              - Create a new account            \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    verify <code>       - Verify your email               \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    resend              - Resend verification code        \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    logout              - Log out                         \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m  \x1b[32mCharacters:\x1b[0m                                            \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    characters          - List your characters            \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    create <name>       - Create a new character          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m  \x1b[32mCommunication:\x1b[0m                                         \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    say <message>       - Send a message                  \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    who                 - List connected users            \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    whoami              - Display current user            \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m  \x1b[32mUtilities:\x1b[0m                                             \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    status              - Show connection status          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    server              - Show server information         \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    ping                - Test server connection          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    clear               - Clear the terminal              \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    version             - Show version info               \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    quit                - Disconnect                      \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m  Type \x1b[36mhelp <command>\x1b[0m for detailed usage.                \x1b[33m║\x1b[0m',
+                    '\x1b[33m╚══════════════════════════════════════════════════════════╝\x1b[0m',
+                    ''
+                ];
+                help.forEach(line => this.writeLine(line));
+            }
+
+            showCommandHelp(cmd) {
+                const helpTexts = {
+                    'login': [
+                        '\x1b[33mUsage:\x1b[0m login [username]',
+                        '',
+                        'Log in to your account. If username is not provided,',
+                        'you will be prompted for it.',
+                        '',
+                        '\x1b[33mExamples:\x1b[0m',
+                        '  login',
+                        '  login jake'
+                    ],
+                    'signup': [
+                        '\x1b[33mUsage:\x1b[0m signup',
+                        '',
+                        'Create a new account. You will be prompted for:',
+                        '  - Username',
+                        '  - Email address',
+                        '  - Password',
+                        '',
+                        'A verification code will be sent to your email.'
+                    ],
+                    'verify': [
+                        '\x1b[33mUsage:\x1b[0m verify <code>',
+                        '',
+                        'Verify your email address with the 6-digit code',
+                        'sent to your email.',
+                        '',
+                        '\x1b[33mExample:\x1b[0m',
+                        '  verify 123456'
+                    ],
+                    'say': [
+                        '\x1b[33mUsage:\x1b[0m say <message>',
+                        '',
+                        'Send a message to the server.',
+                        '',
+                        '\x1b[33mExample:\x1b[0m',
+                        '  say Hello, world!'
+                    ]
+                };
+
+                if (helpTexts[cmd]) {
+                    this.writeLine('');
+                    helpTexts[cmd].forEach(line => this.writeLine(line));
+                    this.writeLine('');
+                } else {
+                    this.writeLine(`No detailed help for: ${cmd}`);
+                }
+            }
+
+            async cmdLogin(args) {
+                let username = args[0];
+
+                if (!username) {
+                    username = await this.promptInput('Username: ');
+                }
+
+                const password = await this.promptPassword('Password: ');
+
+                this.writeLine('Authenticating...');
+
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.currentUser = data.user;
+                        this.characters = data.characters || [];
+                        this.updateUserStatus(this.currentUser.username);
+                        this.writeLine(`\x1b[32m✓ Welcome back, ${this.currentUser.username}!\x1b[0m`);
+                        this.writeLine('');
+                        
+                        // Show server status
+                        if (data.server_status) {
+                            const status = data.server_status;
+                            this.writeLine('\x1b[33m┌─────────────────────────────────────┐\x1b[0m');
+                            this.writeLine('\x1b[33m│\x1b[0m       \x1b[1mSERVER STATUS\x1b[0m                \x1b[33m│\x1b[0m');
+                            this.writeLine('\x1b[33m├─────────────────────────────────────┤\x1b[0m');
+                            this.writeLine(`\x1b[33m│\x1b[0m  Status:  \x1b[32m${status.status.toUpperCase().padEnd(23)}\x1b[0m\x1b[33m│\x1b[0m`);
+                            this.writeLine(`\x1b[33m│\x1b[0m  Uptime:  ${status.uptime.padEnd(23)}\x1b[33m│\x1b[0m`);
+                            this.writeLine(`\x1b[33m│\x1b[0m  Online:  ${String(status.connected_users + ' user(s)').padEnd(23)}\x1b[33m│\x1b[0m`);
+                            this.writeLine('\x1b[33m└─────────────────────────────────────┘\x1b[0m');
+                            this.writeLine('');
+                        }
+                        
+                        // Show characters list
+                        if (this.characters.length > 0) {
+                            this.writeLine('\x1b[36m┌─────────────────────────────────────┐\x1b[0m');
+                            this.writeLine('\x1b[36m│\x1b[0m       \x1b[1mYOUR CHARACTERS\x1b[0m               \x1b[36m│\x1b[0m');
+                            this.writeLine('\x1b[36m├─────────────────────────────────────┤\x1b[0m');
+                            this.characters.forEach((char, idx) => {
+                                this.writeLine(`\x1b[36m│\x1b[0m  ${idx + 1}. \x1b[33m${char.name.padEnd(15)}\x1b[0m Lv.${String(char.level).padEnd(3)} \x1b[36m│\x1b[0m`);
+                            });
+                            this.writeLine('\x1b[36m└─────────────────────────────────────┘\x1b[0m');
+                            this.writeLine('');
+                            this.writeLine('Type \x1b[33mcharacters\x1b[0m to view details or \x1b[33mcreate <name>\x1b[0m to make a new one.');
+                        } else {
+                            this.writeLine('\x1b[33mYou have no characters yet.\x1b[0m');
+                            this.writeLine('Type \x1b[36mcreate <name>\x1b[0m to create your first character!');
+                        }
+                        this.writeLine('');
+                        
+                        // Also authenticate via Socket.IO for real-time features
+                        this.socket.emit('authenticate', { username, password });
+                    } else {
+                        this.writeLine(`\x1b[31m✗ ${data.error}\x1b[0m`);
+                        this.prompt();
+                    }
+                } catch (error) {
+                    this.writeLine(`\x1b[31m✗ Connection error: ${error.message}\x1b[0m`);
+                    this.prompt();
+                }
+            }
+
+            async cmdSignup() {
+                const username = await this.promptInput('Username: ');
+                const email = await this.promptInput('Email: ');
+                const password = await this.promptPassword('Password: ');
+                const confirmPassword = await this.promptPassword('Confirm Password: ');
+
+                if (password !== confirmPassword) {
+                    this.writeLine('\x1b[31m✗ Passwords do not match.\x1b[0m');
+                    this.prompt();
+                    return;
+                }
+
+                this.writeLine('Creating account...');
+                this.tempEmail = email;
+
+                try {
+                    const response = await fetch('/api/signup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, email, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.writeLine(`\x1b[32m✓ Account created!\x1b[0m`);
+                        this.writeLine('');
+                        this.writeLine('\x1b[33mA verification code has been sent to your email.\x1b[0m');
+                        this.writeLine('Use \x1b[36mverify <code>\x1b[0m to verify your account.');
+                        this.writeLine('');
+                    } else {
+                        this.writeLine(`\x1b[31m✗ ${data.error}\x1b[0m`);
+                    }
+                } catch (error) {
+                    this.writeLine(`\x1b[31m✗ Connection error: ${error.message}\x1b[0m`);
+                }
+                this.prompt();
+            }
+
+            async cmdVerify(args) {
+                let code = args[0];
+                let email = this.tempEmail;
+
+                if (!code) {
+                    code = await this.promptInput('Verification Code: ');
+                }
+
+                if (!email) {
+                    email = await this.promptInput('Email: ');
+                }
+
+                this.writeLine('Verifying...');
+
+                try {
+                    const response = await fetch('/api/verify-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, code })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.writeLine(`\x1b[32m✓ ${data.message}\x1b[0m`);
+                        this.writeLine('You can now \x1b[36mlogin\x1b[0m with your credentials.');
+                        this.tempEmail = null;
+                    } else {
+                        this.writeLine(`\x1b[31m✗ ${data.error}\x1b[0m`);
+                    }
+                } catch (error) {
+                    this.writeLine(`\x1b[31m✗ Connection error: ${error.message}\x1b[0m`);
+                }
+                this.prompt();
+            }
+
+            async cmdResend() {
+                let email = this.tempEmail;
+
+                if (!email) {
+                    email = await this.promptInput('Email: ');
+                }
+
+                this.writeLine('Sending verification code...');
+
+                try {
+                    const response = await fetch('/api/resend-verification', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.writeLine(`\x1b[32m✓ ${data.message}\x1b[0m`);
+                        this.tempEmail = email;
+                    } else {
+                        this.writeLine(`\x1b[31m✗ ${data.error}\x1b[0m`);
+                    }
+                } catch (error) {
+                    this.writeLine(`\x1b[31m✗ Connection error: ${error.message}\x1b[0m`);
+                }
+                this.prompt();
+            }
+
+            cmdLogout() {
+                if (!this.currentUser) {
+                    this.writeLine('You are not logged in.');
+                } else {
+                    const username = this.currentUser.username;
+                    this.currentUser = null;
+                    this.updateUserStatus('guest');
+                    this.writeLine(`\x1b[33mGoodbye, ${username}!\x1b[0m`);
+                }
+                this.prompt();
+            }
+
+            cmdStatus() {
+                const connected = this.socket && this.socket.connected;
+                const user = this.currentUser ? this.currentUser.username : 'guest';
+                const uptime = this.getSessionTime();
+
+                this.writeLine('');
+                this.writeLine('\x1b[33m┌─────────────────────────────┐\x1b[0m');
+                this.writeLine('\x1b[33m│\x1b[0m       \x1b[1mSTATUS\x1b[0m               \x1b[33m│\x1b[0m');
+                this.writeLine('\x1b[33m├─────────────────────────────┤\x1b[0m');
+                this.writeLine(`\x1b[33m│\x1b[0m  Connection: ${connected ? '\x1b[32mONLINE\x1b[0m ' : '\x1b[31mOFFLINE\x1b[0m'}       \x1b[33m│\x1b[0m`);
+                this.writeLine(`\x1b[33m│\x1b[0m  User:       \x1b[36m${user.padEnd(14)}\x1b[0m \x1b[33m│\x1b[0m`);
+                this.writeLine(`\x1b[33m│\x1b[0m  Session:    ${uptime.padEnd(14)} \x1b[33m│\x1b[0m`);
+                this.writeLine('\x1b[33m└─────────────────────────────┘\x1b[0m');
+                this.writeLine('');
+                this.prompt();
+            }
+
+            cmdWho() {
+                // Request connected users from server
+                this.socket.emit('command', { cmd: 'who' });
+            }
+
+            cmdServer() {
+                // Request server information from server
+                this.socket.emit('command', { cmd: 'server_info' });
+            }
+
+            cmdCharacters() {
+                if (!this.currentUser) {
+                    this.writeLine('\x1b[31mYou must be logged in to view characters.\x1b[0m');
+                    this.prompt();
+                    return;
+                }
+                // Request characters from server
+                this.socket.emit('command', { cmd: 'characters' });
+            }
+
+            cmdCreate(args) {
+                if (!this.currentUser) {
+                    this.writeLine('\x1b[31mYou must be logged in to create a character.\x1b[0m');
+                    this.prompt();
+                    return;
+                }
+                if (!args.length) {
+                    this.writeLine('Usage: create <character_name> [description]');
+                    this.prompt();
+                    return;
+                }
+                // Send create command to server
+                this.socket.emit('command', { cmd: 'create', args: args });
+            }
+
+            cmdWhoami() {
+                if (this.currentUser) {
+                    this.writeLine(`You are logged in as: \x1b[36m${this.currentUser.username}\x1b[0m`);
+                    this.writeLine(`Email: \x1b[36m${this.currentUser.email}\x1b[0m`);
+                } else {
+                    this.writeLine('You are not logged in. (\x1b[33mguest\x1b[0m)');
+                }
+                this.prompt();
+            }
+
+            cmdClear() {
+                this.term.clear();
+                this.prompt();
+            }
+
+            cmdSay(args) {
+                if (!this.socket || !this.socket.connected) {
+                    this.writeLine('\x1b[31mNot connected to server.\x1b[0m');
+                    this.prompt();
+                    return;
+                }
+
+                const message = args.join(' ');
+                if (!message) {
+                    this.writeLine('Usage: say <message>');
+                    this.prompt();
+                    return;
+                }
+
+                this.socket.emit('message', message);
+                this.writeLine(`\x1b[32mYou:\x1b[0m ${message}`);
+                this.prompt();
+            }
+
+            cmdPing() {
+                const start = Date.now();
+                fetch('/api/health')
+                    .then(response => response.json())
+                    .then(data => {
+                        const latency = Date.now() - start;
+                        this.writeLine(`\x1b[32mPong!\x1b[0m Server is ${data.status}. Latency: ${latency}ms`);
+                        this.prompt();
+                    })
+                    .catch(error => {
+                        this.writeLine(`\x1b[31mPing failed: ${error.message}\x1b[0m`);
+                        this.prompt();
+                    });
+            }
+
+            cmdQuit() {
+                this.writeLine('');
+                this.writeLine('\x1b[33mDisconnecting...\x1b[0m');
+                this.writeLine('Goodbye!');
+                this.writeLine('');
+                
+                if (this.socket) {
+                    this.socket.disconnect();
+                }
+            }
+
+            cmdVersion() {
+                this.writeLine('');
+                this.writeLine('\x1b[32mOEN Terminal\x1b[0m v1.0.0');
+                this.writeLine('Authentication System');
+                this.writeLine('(c) 2024 OEN Network');
+                this.writeLine('');
+                this.prompt();
+            }
+
+            // ============================================================
+            // Utilities
+            // ============================================================
+
+            writeLine(text) {
+                this.term.writeln(text);
+            }
+
+            prompt() {
+                if (this.inputMode === 'normal') {
+                    const userPrefix = this.currentUser ? 
+                        `\x1b[36m${this.currentUser.username}\x1b[0m` : 
+                        '\x1b[33mguest\x1b[0m';
+                    this.term.write(`[${userPrefix}]${this.promptStr}`);
+                }
+            }
+
+            promptInput(promptText) {
+                return new Promise((resolve) => {
+                    this.inputMode = 'confirm';
+                    this.term.write(promptText);
+                    this.pendingCallback = (value) => {
+                        this.inputMode = 'normal';
+                        this.pendingCallback = null;
+                        resolve(value);
+                    };
+                });
+            }
+
+            promptPassword(promptText) {
+                return new Promise((resolve) => {
+                    this.inputMode = 'password';
+                    this.term.write(promptText);
+                    this.pendingCallback = (value) => {
+                        this.inputMode = 'normal';
+                        this.pendingCallback = null;
+                        resolve(value);
+                    };
+                });
+            }
+
+            showWelcome() {
+                const welcome = [
+                    '',
+                    '\x1b[32m════════════════════════════════════════════════════════════\x1b[0m',
+                    '',
+                    '  Welcome to the \x1b[1mOEN Authentication Network\x1b[0m',
+                    '',
+                    '  This terminal provides secure access to authentication',
+                    '  services. Type \x1b[33mhelp\x1b[0m for available commands.',
+                    '',
+                    '  New users: Type \x1b[36msignup\x1b[0m to create an account.',
+                    '  Existing users: Type \x1b[36mlogin\x1b[0m to authenticate.',
+                    '',
+                    '\x1b[32m════════════════════════════════════════════════════════════\x1b[0m',
+                    ''
+                ];
+                welcome.forEach(line => this.writeLine(line));
+            }
+
+            updateConnectionStatus(connected) {
+                const el = document.getElementById('conn-status');
+                el.textContent = connected ? 'ONLINE' : 'OFFLINE';
+                el.className = connected ? 'connected' : 'disconnected';
+            }
+
+            updateUserStatus(username) {
+                document.getElementById('user-status').textContent = username;
+            }
+
+            startSessionTimer() {
+                this.sessionTimer = setInterval(() => {
+                    document.getElementById('session-time').textContent = this.getSessionTime();
+                }, 1000);
+            }
+
+            getSessionTime() {
+                if (!this.sessionStart) return '00:00:00';
+                const diff = Math.floor((new Date() - this.sessionStart) / 1000);
+                const hours = Math.floor(diff / 3600).toString().padStart(2, '0');
+                const mins = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+                const secs = (diff % 60).toString().padStart(2, '0');
+                return `${hours}:${mins}:${secs}`;
+            }
+        }
+
+        // Initialize terminal on page load
+        window.addEventListener('load', () => {
+            window.oenTerminal = new OENTerminal();
+        });
+    </script>
+</body>
+</html>

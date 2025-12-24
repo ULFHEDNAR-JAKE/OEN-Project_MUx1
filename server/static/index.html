@@ -491,10 +491,10 @@
         <!-- Chat Tab -->
         <div id="chat" class="tab-content" role="tabpanel" aria-labelledby="tab-chat">
             <div class="chat-box" id="chat-box" role="log" aria-live="polite" aria-label="Chat messages">
-                <div class="chat-message system">Connect to start chatting...</div>
+                <div class="chat-message system">Connect to start chatting... Type 'help' for commands.</div>
             </div>
             <div class="message-input-group">
-                <input type="text" id="chat-message" placeholder="Type a message..." 
+                <input type="text" id="chat-message" placeholder="Type a message or 'disconnect' to leave..." 
                        aria-label="Chat message" maxlength="500">
                 <button type="button" id="send-btn" onclick="sendMessage()">Send</button>
             </div>
@@ -516,7 +516,9 @@
             MAX_MESSAGE_LENGTH: 500,
             MAX_CHAT_MESSAGES: 100,
             SUCCESS_MESSAGE_TIMEOUT: 5000,
-            TAB_SWITCH_DELAY: 2000
+            TAB_SWITCH_DELAY: 2000,
+            IDLE_TIMEOUT: 300000,  // 5 minutes in milliseconds
+            IDLE_WARNING_TIME: 60000  // 1 minute warning before disconnect
         };
         
         // Application State
@@ -524,7 +526,10 @@
             socket: null,
             currentUser: null,
             reconnectAttempts: 0,
-            maxReconnectAttempts: 5
+            maxReconnectAttempts: 5,
+            idleTimer: null,
+            idleWarningTimer: null,
+            lastActivity: Date.now()
         };
         
         // ============================================================
@@ -589,7 +594,99 @@
             initSocket();
             setupFormValidation();
             setupPasswordStrength();
+            setupIdleTimeout();
+            setupBeforeUnload();
         };
+        
+        // ============================================================
+        // Idle Timeout & Disconnect Functions
+        // ============================================================
+        
+        function setupIdleTimeout() {
+            // Track user activity
+            const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+            
+            activityEvents.forEach(event => {
+                document.addEventListener(event, resetIdleTimer, { passive: true });
+            });
+            
+            // Start idle timer
+            resetIdleTimer();
+        }
+        
+        function resetIdleTimer() {
+            AppState.lastActivity = Date.now();
+            
+            // Clear existing timers
+            if (AppState.idleTimer) {
+                clearTimeout(AppState.idleTimer);
+            }
+            if (AppState.idleWarningTimer) {
+                clearTimeout(AppState.idleWarningTimer);
+            }
+            
+            // Only set timers if connected
+            if (AppState.socket && AppState.socket.connected) {
+                // Set warning timer (fires before disconnect)
+                AppState.idleWarningTimer = setTimeout(() => {
+                    showMessage('You will be disconnected due to inactivity in 1 minute. Move your mouse or type to stay connected.', 'info');
+                    addChatMessage('System', 'Warning: You will be disconnected due to inactivity in 1 minute.', 'system');
+                }, CONFIG.IDLE_TIMEOUT - CONFIG.IDLE_WARNING_TIME);
+                
+                // Set disconnect timer
+                AppState.idleTimer = setTimeout(() => {
+                    disconnectDueToIdle();
+                }, CONFIG.IDLE_TIMEOUT);
+            }
+        }
+        
+        function disconnectDueToIdle() {
+            if (AppState.socket && AppState.socket.connected) {
+                addChatMessage('System', 'Disconnected due to inactivity.', 'system');
+                showMessage('You have been disconnected due to inactivity. Refresh to reconnect.', 'info');
+                AppState.socket.disconnect();
+                AppState.currentUser = null;
+            }
+        }
+        
+        function disconnect() {
+            // Clear idle timers
+            if (AppState.idleTimer) {
+                clearTimeout(AppState.idleTimer);
+                AppState.idleTimer = null;
+            }
+            if (AppState.idleWarningTimer) {
+                clearTimeout(AppState.idleWarningTimer);
+                AppState.idleWarningTimer = null;
+            }
+            
+            if (AppState.socket && AppState.socket.connected) {
+                addChatMessage('System', 'You have disconnected from the server.', 'system');
+                showMessage('Disconnected from server.', 'info');
+                AppState.socket.disconnect();
+                AppState.currentUser = null;
+                updateStatus('Disconnected', false);
+            } else {
+                showMessage('Not currently connected.', 'info');
+            }
+        }
+        
+        function setupBeforeUnload() {
+            // Disconnect when user closes browser/tab
+            window.addEventListener('beforeunload', () => {
+                if (AppState.socket && AppState.socket.connected) {
+                    AppState.socket.disconnect();
+                }
+            });
+            
+            // Also handle visibility change (tab becomes hidden)
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    // User returned to tab - reset idle timer
+                    resetIdleTimer();
+                }
+            });
+        }
         
         // ============================================================
         // Form Validation
@@ -994,6 +1091,22 @@
             
             if (!message) return;
             
+            // Handle disconnect command
+            if (message.toLowerCase() === 'disconnect' || message.toLowerCase() === '/disconnect') {
+                input.value = '';
+                addChatMessage('You', message, 'you');
+                disconnect();
+                return;
+            }
+            
+            // Handle help command to show available commands
+            if (message.toLowerCase() === 'help' || message.toLowerCase() === '/help') {
+                input.value = '';
+                addChatMessage('You', message, 'you');
+                addChatMessage('System', 'Available commands: disconnect, help', 'system');
+                return;
+            }
+            
             if (!AppState.socket || !AppState.socket.connected) {
                 showMessage('Not connected to server', 'error');
                 return;
@@ -1004,6 +1117,9 @@
                 showMessage(`Message too long (max ${CONFIG.MAX_MESSAGE_LENGTH} characters)`, 'error');
                 return;
             }
+            
+            // Reset idle timer on activity
+            resetIdleTimer();
             
             AppState.socket.emit('message', message);
             addChatMessage('You', message, 'you');

@@ -511,6 +511,14 @@
         // OEN Authentication Client - Web Interface
         // ============================================================
         
+        // Configuration Constants
+        const CONFIG = {
+            MAX_MESSAGE_LENGTH: 500,
+            MAX_CHAT_MESSAGES: 100,
+            SUCCESS_MESSAGE_TIMEOUT: 5000,
+            TAB_SWITCH_DELAY: 2000
+        };
+        
         // Application State
         const AppState = {
             socket: null,
@@ -737,9 +745,9 @@
             msg.className = 'message ' + type;
             msg.style.display = 'block';
             
-            // Auto-hide success messages after 5 seconds
+            // Auto-hide success messages
             if (type === 'success') {
-                setTimeout(hideMessage, 5000);
+                setTimeout(hideMessage, CONFIG.SUCCESS_MESSAGE_TIMEOUT);
             }
         }
         
@@ -776,8 +784,8 @@
             chatBox.appendChild(message);
             chatBox.scrollTop = chatBox.scrollHeight;
             
-            // Keep only last 100 messages
-            while (chatBox.children.length > 100) {
+            // Keep only last N messages
+            while (chatBox.children.length > CONFIG.MAX_CHAT_MESSAGES) {
                 chatBox.removeChild(chatBox.firstChild);
             }
         }
@@ -794,14 +802,8 @@
         }
         
         // ============================================================
-        // Security Utilities
+        // Utilities
         // ============================================================
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
         
         function clearForm(formId) {
             const form = document.getElementById(formId);
@@ -940,11 +942,11 @@
                     showMessage(data.message + ' You can now login.', 'success');
                     clearForm('verify-form');
                     
-                    // Auto-switch to login tab
+                    // Auto-switch to login tab after delay
                     setTimeout(() => {
                         const loginTab = document.getElementById('tab-login');
                         switchTab({ target: loginTab }, 'login');
-                    }, 2000);
+                    }, CONFIG.TAB_SWITCH_DELAY);
                 } else {
                     showMessage(data.error, 'error');
                 }
@@ -998,8 +1000,8 @@
             }
             
             // Limit message length
-            if (message.length > 500) {
-                showMessage('Message too long (max 500 characters)', 'error');
+            if (message.length > CONFIG.MAX_MESSAGE_LENGTH) {
+                showMessage(`Message too long (max ${CONFIG.MAX_MESSAGE_LENGTH} characters)`, 'error');
                 return;
             }
             

@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authentication Client</title>
+    <meta name="description" content="OEN Authentication Client - Secure login and registration">
+    <title>Authentication Client - OEN Network</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * {
@@ -41,8 +42,28 @@
         .subtitle {
             text-align: center;
             color: #666;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             font-size: 14px;
+        }
+        
+        .nav-links {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .nav-links a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 13px;
+            padding: 5px 10px;
+            border: 1px solid #667eea;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background: #667eea;
+            color: white;
         }
         
         .tabs {
@@ -63,6 +84,15 @@
             transition: all 0.3s;
         }
         
+        .tab:hover {
+            color: #667eea;
+        }
+        
+        .tab:focus {
+            outline: 2px solid #667eea;
+            outline-offset: -2px;
+        }
+        
         .tab.active {
             color: #667eea;
             border-bottom: 2px solid #667eea;
@@ -75,6 +105,12 @@
         
         .tab-content.active {
             display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .form-group {
@@ -89,18 +125,81 @@
             font-size: 14px;
         }
         
+        .input-wrapper {
+            position: relative;
+        }
+        
         input {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
             border-radius: 5px;
             font-size: 14px;
-            transition: border-color 0.3s;
+            transition: border-color 0.3s, box-shadow 0.3s;
         }
         
         input:focus {
             outline: none;
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        input.error {
+            border-color: #dc3545;
+        }
+        
+        input.success {
+            border-color: #28a745;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+            padding: 5px;
+            width: auto;
+            font-size: 14px;
+        }
+        
+        .toggle-password:hover {
+            color: #667eea;
+            transform: translateY(-50%);
+        }
+        
+        .password-strength {
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 8px;
+            background: #e0e0e0;
+            overflow: hidden;
+        }
+        
+        .password-strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s, background-color 0.3s;
+        }
+        
+        .password-strength-bar.weak { width: 33%; background: #dc3545; }
+        .password-strength-bar.medium { width: 66%; background: #ffc107; }
+        .password-strength-bar.strong { width: 100%; background: #28a745; }
+        
+        .field-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .field-error {
+            font-size: 12px;
+            color: #dc3545;
+            margin-top: 5px;
+            display: none;
         }
         
         button {
@@ -113,15 +212,44 @@
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s;
+            transition: transform 0.2s, opacity 0.2s;
+            position: relative;
         }
         
-        button:hover {
+        button:hover:not(:disabled) {
             transform: translateY(-2px);
         }
         
-        button:active {
+        button:active:not(:disabled) {
             transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        button.loading {
+            color: transparent;
+        }
+        
+        button.loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid white;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
         
         .message {
@@ -129,6 +257,12 @@
             border-radius: 5px;
             margin-bottom: 20px;
             display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .message.success {
@@ -143,6 +277,12 @@
             border: 1px solid #f5c6cb;
         }
         
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
         .status {
             text-align: center;
             margin-top: 20px;
@@ -151,6 +291,27 @@
             background: #f8f9fa;
             font-size: 13px;
             color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #dc3545;
+        }
+        
+        .status.connected .status-indicator {
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
         
         .status.connected {
@@ -174,6 +335,29 @@
             background: white;
             border-radius: 5px;
             font-size: 13px;
+            word-wrap: break-word;
+        }
+        
+        .chat-message .timestamp {
+            font-size: 10px;
+            color: #999;
+            margin-left: 8px;
+        }
+        
+        .chat-message.system {
+            background: #e7f3ff;
+            color: #0066cc;
+            font-style: italic;
+        }
+        
+        .chat-message.you {
+            background: #e8f5e9;
+            border-left: 3px solid #4caf50;
+        }
+        
+        .chat-message.server {
+            background: #fff3e0;
+            border-left: 3px solid #ff9800;
         }
         
         .message-input-group {
@@ -189,6 +373,22 @@
             width: auto;
             padding: 12px 24px;
         }
+        
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .container {
+                padding: 25px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .tab {
+                font-size: 14px;
+                padding: 10px 5px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -196,133 +396,351 @@
         <h1>🔐 Authentication</h1>
         <p class="subtitle">Client/Server Access Application</p>
         
-        <div class="message" id="message"></div>
+        <div class="nav-links">
+            <a href="/terminal" title="Open Terminal Interface">📟 Terminal Mode</a>
+        </div>
         
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab(event, 'signup')">Sign Up</button>
-            <button class="tab" onclick="switchTab(event, 'login')">Login</button>
-            <button class="tab" onclick="switchTab(event, 'verify')">Verify</button>
-            <button class="tab" onclick="switchTab(event, 'chat')">Chat</button>
+        <div class="message" id="message" role="alert" aria-live="polite"></div>
+        
+        <div class="tabs" role="tablist" aria-label="Authentication options">
+            <button class="tab active" role="tab" aria-selected="true" aria-controls="signup" id="tab-signup" onclick="switchTab(event, 'signup')">Sign Up</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="login" id="tab-login" onclick="switchTab(event, 'login')">Login</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="verify" id="tab-verify" onclick="switchTab(event, 'verify')">Verify</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="chat" id="tab-chat" onclick="switchTab(event, 'chat')">Chat</button>
         </div>
         
         <!-- Sign Up Tab -->
-        <div id="signup" class="tab-content active">
-            <form onsubmit="signup(event)">
+        <div id="signup" class="tab-content active" role="tabpanel" aria-labelledby="tab-signup">
+            <form onsubmit="signup(event)" id="signup-form" novalidate>
                 <div class="form-group">
                     <label for="signup-username">Username</label>
-                    <input type="text" id="signup-username" required>
+                    <input type="text" id="signup-username" required minlength="3" maxlength="80" 
+                           autocomplete="username" aria-describedby="username-hint"
+                           placeholder="Enter username (3-80 characters)">
+                    <span class="field-hint" id="username-hint">3-80 characters, alphanumeric</span>
+                    <span class="field-error" id="signup-username-error"></span>
                 </div>
                 <div class="form-group">
                     <label for="signup-email">Email</label>
-                    <input type="email" id="signup-email" required>
+                    <input type="email" id="signup-email" required autocomplete="email"
+                           placeholder="Enter your email address">
+                    <span class="field-error" id="signup-email-error"></span>
                 </div>
                 <div class="form-group">
                     <label for="signup-password">Password</label>
-                    <input type="password" id="signup-password" required>
+                    <div class="input-wrapper">
+                        <input type="password" id="signup-password" required minlength="6" 
+                               autocomplete="new-password" aria-describedby="password-hint"
+                               placeholder="Enter password (min 6 characters)">
+                        <button type="button" class="toggle-password" onclick="togglePassword('signup-password', this)" aria-label="Show password">👁️</button>
+                    </div>
+                    <div class="password-strength" aria-hidden="true">
+                        <div class="password-strength-bar" id="password-strength-bar"></div>
+                    </div>
+                    <span class="field-hint" id="password-hint">Minimum 6 characters</span>
+                    <span class="field-error" id="signup-password-error"></span>
                 </div>
-                <button type="submit">Sign Up</button>
+                <button type="submit" id="signup-btn">Sign Up</button>
             </form>
         </div>
         
         <!-- Login Tab -->
-        <div id="login" class="tab-content">
-            <form onsubmit="login(event)">
+        <div id="login" class="tab-content" role="tabpanel" aria-labelledby="tab-login">
+            <form onsubmit="login(event)" id="login-form" novalidate>
                 <div class="form-group">
                     <label for="login-username">Username</label>
-                    <input type="text" id="login-username" required>
+                    <input type="text" id="login-username" required autocomplete="username"
+                           placeholder="Enter your username">
+                    <span class="field-error" id="login-username-error"></span>
                 </div>
                 <div class="form-group">
                     <label for="login-password">Password</label>
-                    <input type="password" id="login-password" required>
+                    <div class="input-wrapper">
+                        <input type="password" id="login-password" required autocomplete="current-password"
+                               placeholder="Enter your password">
+                        <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)" aria-label="Show password">👁️</button>
+                    </div>
+                    <span class="field-error" id="login-password-error"></span>
                 </div>
-                <button type="submit">Login</button>
+                <button type="submit" id="login-btn">Login</button>
             </form>
         </div>
         
         <!-- Verify Tab -->
-        <div id="verify" class="tab-content">
-            <form onsubmit="verifyEmail(event)">
+        <div id="verify" class="tab-content" role="tabpanel" aria-labelledby="tab-verify">
+            <form onsubmit="verifyEmail(event)" id="verify-form" novalidate>
                 <div class="form-group">
                     <label for="verify-email">Email</label>
-                    <input type="email" id="verify-email" required>
+                    <input type="email" id="verify-email" required autocomplete="email"
+                           placeholder="Enter your email address">
+                    <span class="field-error" id="verify-email-error"></span>
                 </div>
                 <div class="form-group">
                     <label for="verify-code">Verification Code</label>
-                    <input type="text" id="verify-code" required pattern="[0-9]{6}" placeholder="6-digit code">
+                    <input type="text" id="verify-code" required pattern="[0-9]{6}" 
+                           maxlength="6" inputmode="numeric" autocomplete="one-time-code"
+                           placeholder="Enter 6-digit code" aria-describedby="code-hint">
+                    <span class="field-hint" id="code-hint">Check your email for the 6-digit code</span>
+                    <span class="field-error" id="verify-code-error"></span>
                 </div>
-                <button type="submit">Verify Email</button>
+                <button type="submit" id="verify-btn">Verify Email</button>
             </form>
-            <button style="margin-top: 10px; background: #6c757d;" onclick="resendCode()">Resend Code</button>
+            <button type="button" id="resend-btn" style="margin-top: 10px; background: #6c757d;" onclick="resendCode()">Resend Code</button>
         </div>
         
         <!-- Chat Tab -->
-        <div id="chat" class="tab-content">
-            <div class="chat-box" id="chat-box">
-                <div class="chat-message">Connect to start chatting...</div>
+        <div id="chat" class="tab-content" role="tabpanel" aria-labelledby="tab-chat">
+            <div class="chat-box" id="chat-box" role="log" aria-live="polite" aria-label="Chat messages">
+                <div class="chat-message system">Connect to start chatting...</div>
             </div>
             <div class="message-input-group">
-                <input type="text" id="chat-message" placeholder="Type a message...">
-                <button onclick="sendMessage()">Send</button>
+                <input type="text" id="chat-message" placeholder="Type a message..." 
+                       aria-label="Chat message" maxlength="500">
+                <button type="button" id="send-btn" onclick="sendMessage()">Send</button>
             </div>
         </div>
         
-        <div class="status" id="status">Not connected</div>
+        <div class="status" id="status" role="status" aria-live="polite">
+            <span class="status-indicator"></span>
+            <span id="status-text">Not connected</span>
+        </div>
     </div>
     
     <script>
-        let socket = null;
-        let currentUser = null;
+        // ============================================================
+        // OEN Authentication Client - Web Interface
+        // ============================================================
         
-        // Initialize Socket.IO connection
+        // Application State
+        const AppState = {
+            socket: null,
+            currentUser: null,
+            reconnectAttempts: 0,
+            maxReconnectAttempts: 5
+        };
+        
+        // ============================================================
+        // Initialization
+        // ============================================================
+        
         function initSocket() {
-            socket = io();
-            
-            socket.on('connected', (data) => {
-                updateStatus('Connected to server', true);
-                addChatMessage('System: ' + data.message);
-            });
-            
-            socket.on('auth_success', (data) => {
-                currentUser = data.user;
-                showMessage('Authentication successful! Welcome, ' + currentUser.username, 'success');
-                addChatMessage('System: Authenticated as ' + currentUser.username);
-            });
-            
-            socket.on('auth_error', (data) => {
-                showMessage('Authentication error: ' + data.error, 'error');
-            });
-            
-            socket.on('message', (data) => {
-                addChatMessage('Server: ' + JSON.stringify(data));
-            });
-            
-            socket.on('disconnect', () => {
-                updateStatus('Disconnected', false);
-                addChatMessage('System: Disconnected from server');
-            });
+            try {
+                AppState.socket = io({
+                    reconnection: true,
+                    reconnectionAttempts: AppState.maxReconnectAttempts,
+                    reconnectionDelay: 1000
+                });
+                
+                AppState.socket.on('connect', () => {
+                    AppState.reconnectAttempts = 0;
+                    updateStatus('Connected to server', true);
+                });
+                
+                AppState.socket.on('connected', (data) => {
+                    addChatMessage('System', data.message, 'system');
+                });
+                
+                AppState.socket.on('auth_success', (data) => {
+                    AppState.currentUser = data.user;
+                    showMessage('Authentication successful! Welcome, ' + AppState.currentUser.username, 'success');
+                    addChatMessage('System', 'Authenticated as ' + AppState.currentUser.username, 'system');
+                });
+                
+                AppState.socket.on('auth_error', (data) => {
+                    showMessage('Authentication error: ' + data.error, 'error');
+                });
+                
+                AppState.socket.on('message', (data) => {
+                    addChatMessage('Server', JSON.stringify(data), 'server');
+                });
+                
+                AppState.socket.on('disconnect', () => {
+                    updateStatus('Disconnected', false);
+                    addChatMessage('System', 'Disconnected from server', 'system');
+                });
+                
+                AppState.socket.on('reconnect_attempt', (attempt) => {
+                    AppState.reconnectAttempts = attempt;
+                    updateStatus(`Reconnecting... (${attempt}/${AppState.maxReconnectAttempts})`, false);
+                });
+                
+                AppState.socket.on('reconnect_failed', () => {
+                    updateStatus('Connection failed - Please refresh', false);
+                    showMessage('Unable to connect to server. Please check your connection and refresh the page.', 'error');
+                });
+                
+            } catch (error) {
+                console.error('Socket initialization failed:', error);
+                updateStatus('Connection error', false);
+                showMessage('Failed to initialize connection. Please refresh the page.', 'error');
+            }
         }
         
         // Initialize on page load
         window.onload = function() {
             initSocket();
+            setupFormValidation();
+            setupPasswordStrength();
         };
+        
+        // ============================================================
+        // Form Validation
+        // ============================================================
+        
+        function setupFormValidation() {
+            // Username validation
+            const usernameInput = document.getElementById('signup-username');
+            usernameInput.addEventListener('input', function() {
+                const value = this.value.trim();
+                const errorEl = document.getElementById('signup-username-error');
+                
+                if (value.length > 0 && value.length < 3) {
+                    showFieldError(this, errorEl, 'Username must be at least 3 characters');
+                } else if (value.length > 80) {
+                    showFieldError(this, errorEl, 'Username must be less than 80 characters');
+                } else if (value && !/^[a-zA-Z0-9_]+$/.test(value)) {
+                    showFieldError(this, errorEl, 'Username can only contain letters, numbers, and underscores');
+                } else {
+                    clearFieldError(this, errorEl);
+                    if (value.length >= 3) {
+                        this.classList.add('success');
+                    }
+                }
+            });
+            
+            // Email validation
+            ['signup-email', 'verify-email'].forEach(id => {
+                const emailInput = document.getElementById(id);
+                if (emailInput) {
+                    emailInput.addEventListener('input', function() {
+                        const errorEl = document.getElementById(id + '-error');
+                        validateEmail(this, errorEl);
+                    });
+                }
+            });
+            
+            // Verification code - only allow numbers
+            const codeInput = document.getElementById('verify-code');
+            codeInput.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
+            });
+        }
+        
+        function validateEmail(input, errorEl) {
+            const value = input.value.trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            if (value && !emailRegex.test(value)) {
+                showFieldError(input, errorEl, 'Please enter a valid email address');
+            } else {
+                clearFieldError(input, errorEl);
+                if (value && emailRegex.test(value)) {
+                    input.classList.add('success');
+                }
+            }
+        }
+        
+        function showFieldError(input, errorEl, message) {
+            input.classList.remove('success');
+            input.classList.add('error');
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.style.display = 'block';
+            }
+        }
+        
+        function clearFieldError(input, errorEl) {
+            input.classList.remove('error');
+            if (errorEl) {
+                errorEl.textContent = '';
+                errorEl.style.display = 'none';
+            }
+        }
+        
+        // ============================================================
+        // Password Strength
+        // ============================================================
+        
+        function setupPasswordStrength() {
+            const passwordInput = document.getElementById('signup-password');
+            const strengthBar = document.getElementById('password-strength-bar');
+            
+            passwordInput.addEventListener('input', function() {
+                const strength = calculatePasswordStrength(this.value);
+                strengthBar.className = 'password-strength-bar';
+                
+                if (this.value.length === 0) {
+                    strengthBar.className = 'password-strength-bar';
+                } else if (strength < 2) {
+                    strengthBar.classList.add('weak');
+                } else if (strength < 4) {
+                    strengthBar.classList.add('medium');
+                } else {
+                    strengthBar.classList.add('strong');
+                }
+            });
+        }
+        
+        function calculatePasswordStrength(password) {
+            let strength = 0;
+            
+            if (password.length >= 6) strength++;
+            if (password.length >= 10) strength++;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+            if (/\d/.test(password)) strength++;
+            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+            
+            return strength;
+        }
+        
+        // ============================================================
+        // UI Functions
+        // ============================================================
+        
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                button.textContent = '🙈';
+                button.setAttribute('aria-label', 'Hide password');
+            } else {
+                input.type = 'password';
+                button.textContent = '👁️';
+                button.setAttribute('aria-label', 'Show password');
+            }
+        }
         
         function switchTab(event, tabName) {
             // Update tabs
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
+            });
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
             event.target.classList.add('active');
+            event.target.setAttribute('aria-selected', 'true');
             document.getElementById(tabName).classList.add('active');
             
             hideMessage();
+            
+            // Focus first input in the new tab
+            const firstInput = document.getElementById(tabName).querySelector('input');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 100);
+            }
         }
         
         function showMessage(text, type) {
             const msg = document.getElementById('message');
-            msg.textContent = text;
+            msg.textContent = escapeHtml(text);
             msg.className = 'message ' + type;
             msg.style.display = 'block';
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(hideMessage, 5000);
+            }
         }
         
         function hideMessage() {
@@ -331,25 +749,85 @@
         
         function updateStatus(text, connected) {
             const status = document.getElementById('status');
-            status.textContent = text;
+            const statusText = document.getElementById('status-text');
+            statusText.textContent = text;
             status.className = 'status' + (connected ? ' connected' : '');
         }
         
-        function addChatMessage(text) {
+        function addChatMessage(sender, text, type = '') {
             const chatBox = document.getElementById('chat-box');
             const message = document.createElement('div');
-            message.className = 'chat-message';
-            message.textContent = text;
+            message.className = 'chat-message' + (type ? ' ' + type : '');
+            
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            message.innerHTML = `<strong>${escapeHtml(sender)}:</strong> ${escapeHtml(text)} <span class="timestamp">${timestamp}</span>`;
+            
             chatBox.appendChild(message);
             chatBox.scrollTop = chatBox.scrollHeight;
+            
+            // Keep only last 100 messages
+            while (chatBox.children.length > 100) {
+                chatBox.removeChild(chatBox.firstChild);
+            }
         }
+        
+        function setButtonLoading(buttonId, isLoading) {
+            const btn = document.getElementById(buttonId);
+            if (isLoading) {
+                btn.classList.add('loading');
+                btn.disabled = true;
+            } else {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+        
+        // ============================================================
+        // Security Utilities
+        // ============================================================
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function clearForm(formId) {
+            const form = document.getElementById(formId);
+            if (form) {
+                form.reset();
+                form.querySelectorAll('input').forEach(input => {
+                    input.classList.remove('success', 'error');
+                });
+                form.querySelectorAll('.field-error').forEach(el => {
+                    el.style.display = 'none';
+                });
+            }
+        }
+        
+        // ============================================================
+        // API Functions
+        // ============================================================
         
         async function signup(event) {
             event.preventDefault();
             
-            const username = document.getElementById('signup-username').value;
-            const email = document.getElementById('signup-email').value;
+            const username = document.getElementById('signup-username').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
             const password = document.getElementById('signup-password').value;
+            
+            // Client-side validation
+            if (username.length < 3) {
+                showMessage('Username must be at least 3 characters', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showMessage('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            setButtonLoading('signup-btn', true);
             
             try {
                 const response = await fetch('/api/signup', {
@@ -362,20 +840,35 @@
                 
                 if (response.ok) {
                     showMessage(data.message, 'success');
+                    // Auto-fill verify email and switch to verify tab
                     document.getElementById('verify-email').value = email;
+                    clearForm('signup-form');
+                    
+                    // Auto-switch to verify tab
+                    const verifyTab = document.getElementById('tab-verify');
+                    switchTab({ target: verifyTab }, 'verify');
                 } else {
                     showMessage(data.error, 'error');
                 }
             } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
+                showMessage('Network error: ' + error.message, 'error');
+            } finally {
+                setButtonLoading('signup-btn', false);
             }
         }
         
         async function login(event) {
             event.preventDefault();
             
-            const username = document.getElementById('login-username').value;
+            const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value;
+            
+            if (!username || !password) {
+                showMessage('Please enter both username and password', 'error');
+                return;
+            }
+            
+            setButtonLoading('login-btn', true);
             
             try {
                 const response = await fetch('/api/login', {
@@ -387,26 +880,41 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    currentUser = data.user;
-                    showMessage(data.message + ' Welcome, ' + currentUser.username + '!', 'success');
+                    AppState.currentUser = data.user;
+                    showMessage(data.message + ' Welcome, ' + AppState.currentUser.username + '!', 'success');
+                    clearForm('login-form');
                     
                     // Authenticate via Socket.IO
-                    if (socket) {
-                        socket.emit('authenticate', { username, password });
+                    if (AppState.socket && AppState.socket.connected) {
+                        AppState.socket.emit('authenticate', { username, password });
                     }
                 } else {
                     showMessage(data.error, 'error');
                 }
             } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
+                showMessage('Network error: ' + error.message, 'error');
+            } finally {
+                setButtonLoading('login-btn', false);
             }
         }
         
         async function verifyEmail(event) {
             event.preventDefault();
             
-            const email = document.getElementById('verify-email').value;
-            const code = document.getElementById('verify-code').value;
+            const email = document.getElementById('verify-email').value.trim();
+            const code = document.getElementById('verify-code').value.trim();
+            
+            if (!email || !code) {
+                showMessage('Please enter both email and verification code', 'error');
+                return;
+            }
+            
+            if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+                showMessage('Verification code must be exactly 6 digits', 'error');
+                return;
+            }
+            
+            setButtonLoading('verify-btn', true);
             
             try {
                 const response = await fetch('/api/verify-email', {
@@ -418,22 +926,33 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showMessage(data.message, 'success');
+                    showMessage(data.message + ' You can now login.', 'success');
+                    clearForm('verify-form');
+                    
+                    // Auto-switch to login tab
+                    setTimeout(() => {
+                        const loginTab = document.getElementById('tab-login');
+                        switchTab({ target: loginTab }, 'login');
+                    }, 2000);
                 } else {
                     showMessage(data.error, 'error');
                 }
             } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
+                showMessage('Network error: ' + error.message, 'error');
+            } finally {
+                setButtonLoading('verify-btn', false);
             }
         }
         
         async function resendCode() {
-            const email = document.getElementById('verify-email').value;
+            const email = document.getElementById('verify-email').value.trim();
             
             if (!email) {
-                showMessage('Please enter your email', 'error');
+                showMessage('Please enter your email first', 'error');
                 return;
             }
+            
+            setButtonLoading('resend-btn', true);
             
             try {
                 const response = await fetch('/api/resend-verification', {
@@ -450,7 +969,9 @@
                     showMessage(data.error, 'error');
                 }
             } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
+                showMessage('Network error: ' + error.message, 'error');
+            } finally {
+                setButtonLoading('resend-btn', false);
             }
         }
         
@@ -460,21 +981,45 @@
             
             if (!message) return;
             
-            if (!socket || !socket.connected) {
+            if (!AppState.socket || !AppState.socket.connected) {
                 showMessage('Not connected to server', 'error');
                 return;
             }
             
-            socket.emit('message', message);
-            addChatMessage('You: ' + message);
+            // Limit message length
+            if (message.length > 500) {
+                showMessage('Message too long (max 500 characters)', 'error');
+                return;
+            }
+            
+            AppState.socket.emit('message', message);
+            addChatMessage('You', message, 'you');
             input.value = '';
+            input.focus();
         }
         
         // Allow Enter key to send messages
         document.getElementById('chat-message').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 sendMessage();
             }
+        });
+        
+        // Keyboard navigation for tabs
+        document.querySelectorAll('.tab').forEach((tab, index, tabs) => {
+            tab.addEventListener('keydown', (e) => {
+                let targetIndex;
+                if (e.key === 'ArrowRight') {
+                    targetIndex = (index + 1) % tabs.length;
+                } else if (e.key === 'ArrowLeft') {
+                    targetIndex = (index - 1 + tabs.length) % tabs.length;
+                } else {
+                    return;
+                }
+                tabs[targetIndex].focus();
+                tabs[targetIndex].click();
+            });
         });
     </script>
 </body>

@@ -733,7 +733,7 @@
         
         function showMessage(text, type) {
             const msg = document.getElementById('message');
-            msg.textContent = escapeHtml(text);
+            msg.textContent = text;  // textContent already escapes HTML
             msg.className = 'message ' + type;
             msg.style.display = 'block';
             
@@ -759,8 +759,19 @@
             const message = document.createElement('div');
             message.className = 'chat-message' + (type ? ' ' + type : '');
             
-            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            message.innerHTML = `<strong>${escapeHtml(sender)}:</strong> ${escapeHtml(text)} <span class="timestamp">${timestamp}</span>`;
+            // Build message using DOM manipulation for security
+            const strong = document.createElement('strong');
+            strong.textContent = sender + ':';
+            
+            const textNode = document.createTextNode(' ' + text + ' ');
+            
+            const timestamp = document.createElement('span');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            message.appendChild(strong);
+            message.appendChild(textNode);
+            message.appendChild(timestamp);
             
             chatBox.appendChild(message);
             chatBox.scrollTop = chatBox.scrollHeight;

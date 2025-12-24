@@ -518,7 +518,8 @@
             SUCCESS_MESSAGE_TIMEOUT: 5000,
             TAB_SWITCH_DELAY: 2000,
             IDLE_TIMEOUT: 300000,  // 5 minutes in milliseconds
-            IDLE_WARNING_TIME: 60000  // 1 minute warning before disconnect
+            IDLE_WARNING_TIME: 60000,  // 1 minute warning before disconnect
+            IDLE_WARNING_MESSAGE: 'You will be disconnected due to inactivity in 1 minute. Move your mouse or type to stay connected.'
         };
         
         // Application State
@@ -603,8 +604,8 @@
         // ============================================================
         
         function setupIdleTimeout() {
-            // Track user activity
-            const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+            // Track user activity - avoid mousemove due to performance concerns
+            const activityEvents = ['mousedown', 'keypress', 'scroll', 'touchstart', 'click'];
             
             activityEvents.forEach(event => {
                 document.addEventListener(event, resetIdleTimer, { passive: true });
@@ -629,8 +630,8 @@
             if (AppState.socket && AppState.socket.connected) {
                 // Set warning timer (fires before disconnect)
                 AppState.idleWarningTimer = setTimeout(() => {
-                    showMessage('You will be disconnected due to inactivity in 1 minute. Move your mouse or type to stay connected.', 'info');
-                    addChatMessage('System', 'Warning: You will be disconnected due to inactivity in 1 minute.', 'system');
+                    showMessage(CONFIG.IDLE_WARNING_MESSAGE, 'info');
+                    addChatMessage('System', CONFIG.IDLE_WARNING_MESSAGE, 'system');
                 }, CONFIG.IDLE_TIMEOUT - CONFIG.IDLE_WARNING_TIME);
                 
                 // Set disconnect timer

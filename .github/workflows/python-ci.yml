@@ -65,19 +65,41 @@ jobs:
     - name: Test Flask app health endpoint
       run: |
         cd server
-        python app.py > /tmp/server_test.log 2>&1 &
+        FLASK_ENV=testing python app.py > /tmp/server_test.log 2>&1 &
         SERVER_PID=$!
         echo "Server PID: $SERVER_PID"
-        sleep 8
+        
+        # Set up trap to ensure server cleanup
+        trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+        
+        # Wait for server to start with retry logic
+        MAX_RETRIES=15
+        RETRY_COUNT=0
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+          if curl -f -s http://localhost:5000/api/health > /dev/null 2>&1; then
+            echo "✓ Server started successfully"
+            break
+          fi
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          echo "Waiting for server to start... (attempt $RETRY_COUNT/$MAX_RETRIES)"
+          sleep 1
+        done
+        
+        if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+          echo "✗ Server failed to start within expected time"
+          echo "Server logs:"
+          cat /tmp/server_test.log
+          exit 1
+        fi
         
         # Test health endpoint
-        if curl -f -s http://localhost:5000/api/health; then
+        RESPONSE=$(curl -f -s http://localhost:5000/api/health)
+        if [ $? -eq 0 ]; then
           echo "✓ Health endpoint test passed"
-          kill $SERVER_PID 2>/dev/null || true
+          echo "Response: $RESPONSE"
         else
           echo "✗ Health endpoint test failed"
           echo "Server logs:"
           cat /tmp/server_test.log
-          kill $SERVER_PID 2>/dev/null || true
           exit 1
         fi

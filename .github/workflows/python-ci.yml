@@ -1,0 +1,83 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8
+    
+    - name: Lint with flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Validate requirements.txt
+      run: |
+        python validate_requirements.py
+    
+    - name: Check code compatibility
+      run: |
+        python check_compatibility.py
+    
+    - name: Test module imports
+      run: |
+        python -c "import importlib.metadata; import flask; print(f'Flask {importlib.metadata.version(\"flask\")}')"
+        python -c "import flask_socketio; print('Flask-SocketIO imported successfully')"
+        python -c "import flask_sqlalchemy; print('Flask-SQLAlchemy imported successfully')"
+        python -c "import flask_cors; print('Flask-CORS imported successfully')"
+        python -c "import socketio; print('python-socketio imported successfully')"
+        python -c "import importlib.metadata; import werkzeug; print(f'Werkzeug {importlib.metadata.version(\"werkzeug\")}')"
+        python -c "import requests; print(f'requests {requests.__version__}')"
+        python -c "import engineio; print('python-engineio imported successfully')"
+    
+    - name: Validate Python scripts can be executed
+      run: |
+        python -c "import sys; sys.path.insert(0, 'server'); import app; print('server/app.py imports successfully')"
+        python -c "import sys; sys.path.insert(0, 'server'); import email_service; print('server/email_service.py imports successfully')"
+        python -c "import sys; sys.path.insert(0, 'client'); import client; print('client/client.py imports successfully')"
+    
+    - name: Test Flask app health endpoint
+      run: |
+        cd server
+        python app.py > /tmp/server_test.log 2>&1 &
+        SERVER_PID=$!
+        echo "Server PID: $SERVER_PID"
+        sleep 8
+        
+        # Test health endpoint
+        if curl -f -s http://localhost:5000/api/health; then
+          echo "✓ Health endpoint test passed"
+          kill $SERVER_PID 2>/dev/null || true
+        else
+          echo "✗ Health endpoint test failed"
+          echo "Server logs:"
+          cat /tmp/server_test.log
+          kill $SERVER_PID 2>/dev/null || true
+          exit 1
+        fi

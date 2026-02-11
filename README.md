@@ -28,13 +28,14 @@ A comprehensive client-server authentication system with email verification, sup
 └── requirements.txt     # Python dependencies
 ```
 
-## Static Web Interfaces
+## Static Web Interfaces (No Game Assets)
 
 - **HTML/CSS/JavaScript**: Served directly from `server/static/`. `index.html` provides the GUI auth/chat client at `/`, and `terminal.html` exposes the Socket.IO/xterm.js terminal at `/terminal`.
 - **SQL storage**: The web flows persist data via SQLite through SQLAlchemy (no extra setup beyond `auth.db`).
 - **SSH access**: The same static pages can be reached through an SSH tunnel using `config/ssh_tunnel.py` when the server is not publicly exposed.
 - **Note**: This repository only ships the MUD authentication + terminal UI; there are no spaceship game assets in this project.
 - **Local data only**: User authentication data is stored on the machine running the server (`auth.db` SQLite). The static HTML/JS served to browsers does not embed or ship user data, and GitHub static hosting is not used for user information.
+- **No game content**: This project does not include any game runtime or assets (spaceship or otherwise). It provides authentication plus terminal/GUI shells only. Generating PDFs or bundling external game files is out of scope for this codebase.
 
 ## Prerequisites
 

@@ -243,6 +243,47 @@ Response:
 }
 ```
 
+#### Account Analysis (Keep vs. Review)
+```
+GET /api/account-analysis?limit=200&offset=0
+```
+Use positive `limit` and `offset` query parameters to cap how many accounts are analyzed (default limit: 200).
+`total_users` represents all accounts in the database, while `processed_users` reflects the current page after applying `limit`/`offset`.
+Response:
+```json
+{
+  "summary": {
+    "total_users": 3,
+    "processed_users": 2,
+    "keep": 2,
+    "review": 1,
+    "verification_window_hours": 24
+  },
+  "keep": [
+    {
+      "id": 1,
+      "username": "verified_user",
+      "email": "verified@example.com",
+      "created_at": "2026-02-11T00:00:00+00:00",
+      "verified": true,
+      "characters": 1,
+      "reason": "verified"
+    }
+  ],
+  "review": [
+    {
+      "id": 2,
+      "username": "stale_unverified",
+      "email": "stale@example.com",
+      "created_at": "2026-02-09T00:00:00+00:00",
+      "verified": false,
+      "characters": 0,
+      "reason": "stale_unverified"
+    }
+  ]
+}
+```
+
 ### Socket.IO Events
 
 #### Connect

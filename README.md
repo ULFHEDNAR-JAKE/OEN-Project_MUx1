@@ -58,6 +58,7 @@ Think of it as the back-end engine for a text-based online game or interactive s
 - **SQL storage**: The web flows persist data via SQLite through SQLAlchemy (no extra setup beyond `auth.db`).
 - **SSH access**: The same static pages can be reached through an SSH tunnel using `config/ssh_tunnel.py` when the server is not publicly exposed.
 - **Note**: This repository only ships the MUD authentication + terminal UI; there are no spaceship game assets in this project.
+- **Local data only**: User authentication data is stored on the machine running the server (`auth.db` SQLite). The static HTML/JS served to browsers does not embed or ship user data, and GitHub static hosting is not used for user information.
 
 ## Prerequisites
 

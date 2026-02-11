@@ -6,7 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email_service import send_verification_email
 
 # Track connected sessions: {sid: {'user_id': id, 'username': str, 'connected_at': datetime}}
@@ -88,32 +88,42 @@ def get_server_status():
     }
 
 
-def summarize_user(user):
+def summarize_user(user, created_at: datetime | None = None):
     """Return a concise dictionary for account analysis responses."""
+    created_at_value = created_at if created_at is not None else user.created_at
+    if created_at_value and created_at_value.tzinfo is None:
+        created_at_value = created_at_value.replace(tzinfo=timezone.utc)
     return {
         'id': user.id,
         'username': user.username,
         'email': user.email,
-        'created_at': user.created_at.isoformat() if user.created_at else None,
+        'created_at': created_at_value.isoformat() if created_at_value else None,
         'verified': user.is_verified,
         'characters': len(user.characters)
     }
 
 
-def analyze_user_accounts():
+def analyze_user_accounts(limit: int | None = 200, offset: int = 0):
     """Analyze accounts and recommend which ones to keep vs review."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     verification_window = now - timedelta(hours=24)
     keep = []
     review = []
-    users = User.query.all()
+    query = User.query.order_by(User.id)
+    total_users = query.count()
+    if limit is not None:
+        query = query.offset(max(offset, 0)).limit(limit)
+    users = query.all()
     
     for user in users:
-        entry = summarize_user(user)
+        created_at = user.created_at
+        if created_at and created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        entry = summarize_user(user, created_at=created_at)
         if user.is_verified:
             entry['reason'] = 'verified'
             keep.append(entry)
-        elif user.created_at and user.created_at >= verification_window:
+        elif created_at and created_at >= verification_window:
             entry['reason'] = 'pending_recent'
             keep.append(entry)
         else:
@@ -122,7 +132,8 @@ def analyze_user_accounts():
     
     return {
         'summary': {
-            'total_users': len(users),
+            'total_users': total_users,
+            'processed_users': len(users),
             'keep': len(keep),
             'review': len(review),
             'verification_window_hours': 24
@@ -247,7 +258,17 @@ def server_status():
 @app.route('/api/account-analysis', methods=['GET'])
 def account_analysis():
     """Analyze accounts and recommend which users to keep vs review."""
-    return jsonify(analyze_user_accounts()), 200
+    limit = request.args.get('limit', type=int)
+    offset = request.args.get('offset', default=0, type=int)
+    
+    if limit is None:
+        limit = 200
+    
+    if limit <= 0:
+        return jsonify({'error': 'limit must be a positive integer'}), 400
+    
+    offset = max(offset, 0)
+    return jsonify(analyze_user_accounts(limit=limit, offset=offset)), 200
 
 
 @app.route('/api/characters', methods=['GET'])

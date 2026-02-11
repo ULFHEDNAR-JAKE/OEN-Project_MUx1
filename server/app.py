@@ -88,6 +88,50 @@ def get_server_status():
     }
 
 
+def summarize_user(user):
+    """Return a concise dictionary for account analysis responses."""
+    return {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'created_at': user.created_at.isoformat() if user.created_at else None,
+        'verified': user.is_verified,
+        'characters': len(user.characters)
+    }
+
+
+def analyze_user_accounts():
+    """Analyze accounts and recommend which ones to keep vs review."""
+    now = datetime.utcnow()
+    verification_window = now - timedelta(hours=24)
+    keep = []
+    review = []
+    users = User.query.all()
+    
+    for user in users:
+        entry = summarize_user(user)
+        if user.is_verified:
+            entry['reason'] = 'verified'
+            keep.append(entry)
+        elif user.created_at and user.created_at >= verification_window:
+            entry['reason'] = 'pending_recent'
+            keep.append(entry)
+        else:
+            entry['reason'] = 'stale_unverified'
+            review.append(entry)
+    
+    return {
+        'summary': {
+            'total_users': len(users),
+            'keep': len(keep),
+            'review': len(review),
+            'verification_window_hours': 24
+        },
+        'keep': keep,
+        'review': review
+    }
+
+
 # Serve web interface
 @app.route('/')
 def index():
@@ -198,6 +242,12 @@ def login():
 def server_status():
     """Get server status - ping endpoint with detailed info"""
     return jsonify(get_server_status()), 200
+
+
+@app.route('/api/account-analysis', methods=['GET'])
+def account_analysis():
+    """Analyze accounts and recommend which users to keep vs review."""
+    return jsonify(analyze_user_accounts()), 200
 
 
 @app.route('/api/characters', methods=['GET'])

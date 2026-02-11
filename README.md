@@ -243,6 +243,44 @@ Response:
 }
 ```
 
+#### Account Analysis (Keep vs. Review)
+```
+GET /api/account-analysis
+```
+Response:
+```json
+{
+  "summary": {
+    "total_users": 3,
+    "keep": 2,
+    "review": 1,
+    "verification_window_hours": 24
+  },
+  "keep": [
+    {
+      "id": 1,
+      "username": "verified_user",
+      "email": "verified@example.com",
+      "created_at": "2026-02-11T00:00:00",
+      "verified": true,
+      "characters": 1,
+      "reason": "verified"
+    }
+  ],
+  "review": [
+    {
+      "id": 2,
+      "username": "stale_unverified",
+      "email": "stale@example.com",
+      "created_at": "2026-02-09T00:00:00",
+      "verified": false,
+      "characters": 0,
+      "reason": "stale_unverified"
+    }
+  ]
+}
+```
+
 ### Socket.IO Events
 
 #### Connect

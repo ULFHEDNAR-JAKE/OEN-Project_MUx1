@@ -142,6 +142,10 @@ def verify_email():
     
     if not data or not data.get('email') or not data.get('code'):
         return jsonify({'error': 'Missing required fields'}), 400
+
+    code = str(data.get('code')).strip()
+    if len(code) != 6 or not code.isdigit():
+        return jsonify({'error': 'Invalid verification code'}), 400
     
     user = User.query.filter_by(email=data['email']).first()
     
@@ -151,7 +155,7 @@ def verify_email():
     if user.is_verified:
         return jsonify({'message': 'Email already verified'}), 200
     
-    if not user.verification_code or user.verification_code != data['code']:
+    if not user.verification_code or not secrets.compare_digest(user.verification_code, code):
         return jsonify({'error': 'Invalid verification code'}), 400
     
     if not user.verification_code_expires or user.verification_code_expires < datetime.utcnow():

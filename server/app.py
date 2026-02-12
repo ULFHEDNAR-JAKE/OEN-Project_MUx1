@@ -90,7 +90,7 @@ def get_server_status():
 
 def is_valid_verification_code(code) -> bool:
     """Validate format of verification codes (6 numeric digits)"""
-    if code is None:
+    if code is None or not isinstance(code, (str, int)):
         return False
     code_str = str(code).strip()
     return len(code_str) == 6 and code_str.isdigit()
@@ -165,6 +165,7 @@ def verify_email():
     if not is_valid_verification_code(code) or not is_valid_verification_code(stored_code):
         return jsonify({'error': 'Verification failed'}), 400
 
+    # Safe to use constant-time comparison because both codes are validated 6-digit strings
     if not secrets.compare_digest(stored_code, code):
         return jsonify({'error': 'Verification failed'}), 400
     

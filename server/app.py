@@ -88,6 +88,22 @@ def get_server_status():
     }
 
 
+def authenticate_request_user():
+    """Authenticate a request using HTTP Basic auth"""
+    auth = request.authorization
+    if not auth or not auth.username or not auth.password:
+        return None, (jsonify({'error': 'Authentication required'}), 401)
+    
+    user = User.query.filter_by(username=auth.username).first()
+    if not user or not user.check_password(auth.password):
+        return None, (jsonify({'error': 'Invalid credentials'}), 401)
+    
+    if not user.is_verified:
+        return None, (jsonify({'error': 'Email not verified. Please verify your email first.'}), 403)
+    
+    return user, None
+
+
 # Serve web interface
 @app.route('/')
 def index():
@@ -207,6 +223,13 @@ def get_characters():
     if not user_id:
         return jsonify({'error': 'user_id required'}), 400
     
+    user, error_response = authenticate_request_user()
+    if error_response:
+        return error_response
+    
+    if user.id != user_id:
+        return jsonify({'error': 'Forbidden'}), 403
+    
     characters = Character.query.filter_by(user_id=user_id, is_active=True).all()
     return jsonify({'characters': [char.to_dict() for char in characters]}), 200
 
@@ -219,10 +242,12 @@ def create_character():
     if not data or not data.get('user_id') or not data.get('name'):
         return jsonify({'error': 'Missing required fields (user_id, name)'}), 400
     
-    # Check if user exists
-    user = User.query.get(data['user_id'])
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
+    user, error_response = authenticate_request_user()
+    if error_response:
+        return error_response
+    
+    if user.id != data['user_id']:
+        return jsonify({'error': 'Forbidden'}), 403
     
     # Check if character name is taken
     if Character.query.filter_by(name=data['name']).first():

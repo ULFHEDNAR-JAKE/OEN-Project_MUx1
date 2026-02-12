@@ -154,7 +154,7 @@ def verify_email():
     if not user.verification_code or user.verification_code != data['code']:
         return jsonify({'error': 'Invalid verification code'}), 400
     
-    if user.verification_code_expires < datetime.utcnow():
+    if user.verification_code_expires and user.verification_code_expires < datetime.utcnow():
         return jsonify({'error': 'Verification code expired'}), 400
     
     user.is_verified = True

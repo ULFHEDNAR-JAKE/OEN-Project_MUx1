@@ -160,18 +160,16 @@ def verify_email():
         return jsonify({'message': 'Email already verified'}), 200
     
     code = str(data.get('code', '')).strip()
-    if not is_valid_verification_code(code):
-        return jsonify({'error': 'Invalid verification code'}), 400
-    
     stored_code = str(user.verification_code or '').strip()
-    if not is_valid_verification_code(stored_code):
+
+    if (not is_valid_verification_code(code) or
+            not is_valid_verification_code(stored_code) or
+            not secrets.compare_digest(stored_code, code)):
         return jsonify({'error': 'Verification failed'}), 400
-    
-    if not secrets.compare_digest(stored_code, code):
-        return jsonify({'error': 'Invalid verification code'}), 400
     
     expires_at = user.verification_code_expires
     if not expires_at:
+        app.logger.warning('Missing verification_code_expires for user_id=%s', user.id)
         return jsonify({'error': 'Verification code expired'}), 400
     
     if expires_at.tzinfo is None:

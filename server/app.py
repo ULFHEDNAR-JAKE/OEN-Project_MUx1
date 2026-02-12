@@ -6,7 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email_service import send_verification_email
 
 # Track connected sessions: {sid: {'user_id': id, 'username': str, 'connected_at': datetime}}
@@ -40,7 +40,7 @@ class User(db.Model):
 
     def generate_verification_code(self):
         self.verification_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
-        self.verification_code_expires = datetime.utcnow() + timedelta(hours=24)
+        self.verification_code_expires = datetime.now(timezone.utc) + timedelta(hours=24)
         return self.verification_code
 
 
@@ -86,6 +86,14 @@ def get_server_status():
         'total_users': User.query.count(),
         'status': 'online'
     }
+
+
+def is_valid_verification_code(code) -> bool:
+    """Validate format of verification codes (6 numeric digits)"""
+    if code is None or not isinstance(code, (str, int)):
+        return False
+    code_str = str(code).strip()
+    return len(code_str) == 6 and code_str.isdigit()
 
 
 # Serve web interface
@@ -151,10 +159,26 @@ def verify_email():
     if user.is_verified:
         return jsonify({'message': 'Email already verified'}), 200
     
-    if not user.verification_code or user.verification_code != data['code']:
-        return jsonify({'error': 'Invalid verification code'}), 400
+    code = str(data.get('code', '')).strip()
+    stored_code = str(user.verification_code or '').strip()
+
+    # Run validation and comparison for both inputs to minimize timing differences
+    validation_failed = not is_valid_verification_code(code) or not is_valid_verification_code(stored_code)
+    compare_failed = not secrets.compare_digest(stored_code, code)
+    if validation_failed or compare_failed:
+        return jsonify({'error': 'Verification failed'}), 400
     
-    if user.verification_code_expires < datetime.utcnow():
+    expires_at = user.verification_code_expires
+    if not expires_at:
+        app.logger.warning('Missing verification_code_expires for user_id=%s', user.id)
+        return jsonify({'error': 'Verification unavailable'}), 400
+    
+    if expires_at.tzinfo is None:
+        app.logger.info('Normalized naive verification_code_expires to UTC for user_id=%s', user.id)
+        # TODO: remove after DB is migrated to UTC-aware values; assumes legacy naive timestamps are UTC
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    
+    if expires_at < datetime.now(timezone.utc):
         return jsonify({'error': 'Verification code expired'}), 400
     
     user.is_verified = True

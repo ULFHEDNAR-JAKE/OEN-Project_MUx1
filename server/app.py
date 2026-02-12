@@ -88,6 +88,14 @@ def get_server_status():
     }
 
 
+def is_valid_verification_code(code) -> bool:
+    """Validate format of verification codes (6 numeric digits)"""
+    if code is None:
+        return False
+    code_str = str(code).strip()
+    return len(code_str) == 6 and code_str.isdigit()
+
+
 # Serve web interface
 @app.route('/')
 def index():
@@ -151,12 +159,12 @@ def verify_email():
     if user.is_verified:
         return jsonify({'message': 'Email already verified'}), 200
     
-    code = str(data.get('code')).strip()
-    if len(code) != 6 or not code.isdigit():
+    code = str(data.get('code', '')).strip()
+    if not is_valid_verification_code(code):
         return jsonify({'error': 'Invalid verification code'}), 400
     
     stored_code = str(user.verification_code or '').strip()
-    if len(stored_code) != 6 or not stored_code.isdigit():
+    if not is_valid_verification_code(stored_code):
         return jsonify({'error': 'Invalid verification code'}), 400
     
     if not secrets.compare_digest(stored_code, code):

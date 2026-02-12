@@ -165,8 +165,8 @@ def verify_email():
     if not is_valid_verification_code(code) or not is_valid_verification_code(stored_code):
         return jsonify({'error': 'Verification failed'}), 400
 
-    # Safe to use constant-time comparison because both codes are validated 6-digit strings (expected first)
-    if not secrets.compare_digest(stored_code, code):
+    # Safe to use constant-time comparison because both codes are validated 6-digit strings (expected second)
+    if not secrets.compare_digest(code, stored_code):
         return jsonify({'error': 'Verification failed'}), 400
     
     expires_at = user.verification_code_expires

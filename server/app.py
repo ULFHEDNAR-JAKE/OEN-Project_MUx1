@@ -170,7 +170,7 @@ def verify_email():
     
     expires_at = user.verification_code_expires
     if not expires_at:
-        app.logger.warning('Missing verification_code_expires')
+        app.logger.warning('Missing verification_code_expires for user_id=%s', user.id)
         return jsonify({'error': 'Verification code expired'}), 400
     
     if expires_at.tzinfo is None:

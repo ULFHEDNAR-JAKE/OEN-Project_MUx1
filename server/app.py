@@ -165,11 +165,8 @@ def verify_email():
     if not is_valid_verification_code(code) or not is_valid_verification_code(stored_code):
         return jsonify({'error': 'Verification failed'}), 400
 
-    expected_code = stored_code
-    provided_code = code
-
-    # Safe to use constant-time comparison because both codes are validated 6-digit strings
-    if not secrets.compare_digest(expected_code, provided_code):
+    # Safe to use constant-time comparison because both codes are validated 6-digit strings (expected first)
+    if not secrets.compare_digest(stored_code, code):
         return jsonify({'error': 'Verification failed'}), 400
     
     expires_at = user.verification_code_expires
@@ -178,7 +175,7 @@ def verify_email():
         return jsonify({'error': 'Verification code expired'}), 400
     
     if expires_at.tzinfo is None:
-        # Legacy safeguard: assume previously stored naive timestamps are UTC (migrate to remove)
+        # Legacy safeguard: assume previously stored naive timestamps are UTC; remove after DB is migrated to UTC-aware values
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     
     if expires_at < datetime.now(timezone.utc):

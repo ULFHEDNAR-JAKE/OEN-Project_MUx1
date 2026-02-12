@@ -6,7 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email_service import send_verification_email
 
 # Track connected sessions: {sid: {'user_id': id, 'username': str, 'connected_at': datetime}}
@@ -40,7 +40,7 @@ class User(db.Model):
 
     def generate_verification_code(self):
         self.verification_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
-        self.verification_code_expires = datetime.utcnow() + timedelta(hours=24)
+        self.verification_code_expires = datetime.now(timezone.utc) + timedelta(hours=24)
         return self.verification_code
 
 
@@ -165,12 +165,19 @@ def verify_email():
     
     stored_code = str(user.verification_code or '').strip()
     if not is_valid_verification_code(stored_code):
-        return jsonify({'error': 'Invalid verification code'}), 400
+        return jsonify({'error': 'Verification failed'}), 400
     
     if not secrets.compare_digest(stored_code, code):
         return jsonify({'error': 'Invalid verification code'}), 400
     
-    if not user.verification_code_expires or user.verification_code_expires < datetime.utcnow():
+    expires_at = user.verification_code_expires
+    if not expires_at:
+        return jsonify({'error': 'Verification code expired'}), 400
+    
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    
+    if expires_at < datetime.now(timezone.utc):
         return jsonify({'error': 'Verification code expired'}), 400
     
     user.is_verified = True

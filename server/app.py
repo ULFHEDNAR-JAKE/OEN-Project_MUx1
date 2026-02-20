@@ -229,7 +229,7 @@ def get_characters():
 
 @app.route('/api/characters', methods=['POST'])
 def create_character():
-    """Create a new character for a user"""
+    """Create a new character for the authenticated user"""
     user, error_response = authenticate_request_user()
     if error_response:
         return error_response

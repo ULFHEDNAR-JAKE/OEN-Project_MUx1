@@ -2,53 +2,55 @@
 
 ## System Overview
 
-The OEN-Project_MUx1 is a client-server authentication system designed with security, scalability, and ease of deployment in mind. It supports multiple client types (web browser, Python CLI) and provides both HTTP REST API and real-time Socket.IO communication.
+OEN-Project_MUx1 is a **MUD-style multi-user experience server** (MUx = Multi-User eXperience). It provides the core infrastructure for a persistent, real-time multi-user world: account registration with email verification, named in-world characters, a browser-based xterm.js terminal with classic MUD commands, and both REST API and Socket.IO communication channels.
 
 ## High-Level Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      Client Layer                            │
-├──────────────┬──────────────────────┬──────────────────────┤
-│ Web Browser  │   Python CLI Client  │   External Clients   │
-│  (HTML/JS)   │   (client/client.py) │   (via REST API)     │
-└──────┬───────┴──────────┬───────────┴──────────┬───────────┘
-       │                  │                       │
-       │ HTTP/WS          │ HTTP/Socket.IO        │ HTTP/HTTPS
-       │                  │                       │
-┌──────▼──────────────────▼───────────────────────▼───────────┐
-│                   Server Layer                               │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │         Flask Application (server/app.py)           │    │
-│  │  ┌────────────────┐  ┌─────────────────────────┐   │    │
-│  │  │  REST API      │  │  Socket.IO Handler      │   │    │
-│  │  │  Endpoints     │  │  (Real-time Events)     │   │    │
-│  │  └────────────────┘  └─────────────────────────┘   │    │
-│  │                                                      │    │
-│  │  ┌────────────────────────────────────────────┐    │    │
-│  │  │     Email Service (email_service.py)       │    │    │
-│  │  │  - SMTP Configuration                      │    │    │
-│  │  │  - Verification Code Delivery              │    │    │
-│  │  └────────────────────────────────────────────┘    │    │
-│  └─────────────────────────────────────────────────────┘    │
-└───────────────────────────┬──────────────────────────────────┘
+├──────────────┬──────────────┬──────────────┬───────────────┤
+│ Web Auth UI  │  MUD Terminal│ Python CLI   │ External APIs │
+│  /index.html │ /terminal    │ client.py    │ (REST)        │
+└──────┬───────┴──────┬───────┴──────┬───────┴──────┬────────┘
+       │              │              │              │
+       │ HTTP/WS      │ Socket.IO    │ HTTP/WS      │ HTTP
+       │                                            │
+┌──────▼──────────────────────────────────────────▼──────────┐
+│                   Server Layer                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │         Flask Application (server/app.py)            │  │
+│  │  ┌─────────────────┐  ┌──────────────────────────┐  │  │
+│  │  │  REST API        │  │  Socket.IO Handler       │  │  │
+│  │  │  /api/*          │  │  connect / authenticate  │  │  │
+│  │  │                 │  │  message / command        │  │  │
+│  │  └─────────────────┘  └──────────────────────────┘  │  │
+│  │                                                       │  │
+│  │  ┌──────────────────────────────────────────────┐   │  │
+│  │  │     Email Service (email_service.py)         │   │  │
+│  │  │  - SMTP / console fallback                   │   │  │
+│  │  └──────────────────────────────────────────────┘   │  │
+│  └──────────────────────────────────────────────────────┘  │
+└───────────────────────────┬─────────────────────────────────┘
                             │
-┌───────────────────────────▼──────────────────────────────────┐
-│                   Data Layer                                 │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │         SQLAlchemy ORM                              │    │
-│  │  ┌──────────────────────────────────────────────┐  │    │
-│  │  │  User Model                                   │  │    │
-│  │  │  - id, username, email, password_hash        │  │    │
-│  │  │  - is_verified, verification_code            │  │    │
-│  │  │  - verification_code_expires, created_at     │  │    │
-│  │  └──────────────────────────────────────────────┘  │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │         Database (SQLite/PostgreSQL)                │    │
-│  └─────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────┘
+┌───────────────────────────▼─────────────────────────────────┐
+│                   Data Layer                                │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │         SQLAlchemy ORM                               │  │
+│  │  ┌──────────────────────┐  ┌──────────────────────┐ │  │
+│  │  │  User Model          │  │  Character Model      │ │  │
+│  │  │  - id, username      │  │  - id, name          │ │  │
+│  │  │  - email             │  │  - description       │ │  │
+│  │  │  - password_hash     │  │  - level             │ │  │
+│  │  │  - is_verified       │  │  - user_id (FK)      │ │  │
+│  │  │  - verification_code │  │  - is_active         │ │  │
+│  │  └──────────────────────┘  └──────────────────────┘ │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │         Database (SQLite dev / PostgreSQL prod)      │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Component Details
@@ -59,6 +61,8 @@ The OEN-Project_MUx1 is a client-server authentication system designed with secu
 - Handle HTTP REST API requests
 - Manage Socket.IO WebSocket connections
 - User authentication and session management
+- Character management (create, list)
+- In-memory connected-session tracking
 - Database operations via SQLAlchemy ORM
 - Email verification coordination
 
@@ -74,24 +78,39 @@ The OEN-Project_MUx1 is a client-server authentication system designed with secu
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/` | GET | Serve web interface |
+| `/` | GET | Serve web auth UI |
+| `/terminal` | GET | Serve MUD-style xterm.js terminal |
 | `/api/health` | GET | Health check |
+| `/api/server-status` | GET | Uptime, connected users, registered users |
 | `/api/signup` | POST | Register new user |
 | `/api/verify-email` | POST | Verify email with code |
-| `/api/login` | POST | Authenticate user |
+| `/api/login` | POST | Authenticate user (returns characters + server status) |
 | `/api/resend-verification` | POST | Resend verification code |
+| `/api/characters` | GET | List characters for a user (`?user_id=`) |
+| `/api/characters` | POST | Create a new character |
 
 **Socket.IO Events:**
 
 | Event | Direction | Purpose |
 |-------|-----------|---------|
-| `connect` | Server→Client | Connection established |
+| `connect` | Server→Client | Connection established (server status sent) |
 | `connected` | Server→Client | Send connection info |
 | `authenticate` | Client→Server | Authenticate via WebSocket |
-| `auth_success` | Server→Client | Authentication successful |
+| `auth_success` | Server→Client | Auth successful (user, characters, server status) |
 | `auth_error` | Server→Client | Authentication failed |
-| `message` | Bidirectional | Send/receive messages |
+| `message` | Bidirectional | Send/receive messages (echo) |
+| `command` | Client→Server | Terminal MUD command |
+| `cmd_response` | Server→Client | Terminal command output |
 | `disconnect` | Server→Client | Connection closed |
+
+**Terminal commands** (sent via `command` Socket.IO event):
+
+| Command | Requires login | Description |
+|---------|---------------|-------------|
+| `who` | No | List connected users |
+| `server_info` | No | Show uptime and user counts |
+| `characters` | Yes | List your characters |
+| `create <name> [desc]` | Yes | Create a new character |
 
 ### 2. Email Service (`server/email_service.py`)
 
@@ -99,198 +118,83 @@ The OEN-Project_MUx1 is a client-server authentication system designed with secu
 - Send verification emails via SMTP
 - Format email content (text and HTML)
 - Handle SMTP configuration
-- Fallback to console output in development
+- Fallback to console output in development when SMTP credentials are absent
 
-**Configuration:**
-- SMTP server and port
-- Authentication credentials
-- From email address
-- Development mode detection
-
-### 3. Web Client (`server/static/index.html`)
+### 3. Web Auth UI (`server/static/index.html`)
 
 **Features:**
-- Single-page application (SPA)
-- Responsive design
-- Tab-based interface (Sign Up, Login, Verify, Chat)
+- Single-page application served at `/`
+- Tab-based interface: Sign Up, Login, Email Verify
 - Real-time status indicators
 - Socket.IO client integration
 
-**UI Components:**
-- Sign Up form with validation
-- Login form
-- Email verification form
-- Real-time chat interface
-- Status indicator (connected/disconnected)
-- Success/error message display
+### 4. MUD-style Terminal (`server/static/terminal.html`)
 
-### 4. Python CLI Client (`client/client.py`)
+**Features:**
+- Full-screen xterm.js terminal served at `/terminal`
+- Socket.IO real-time communication
+- ANSI colour output for menus and tables
+- MUD-style commands: `who`, `server_info`, `characters`, `create`
+- Authentication flow built into the terminal
+
+### 5. Python CLI Client (`client/client.py`)
 
 **Features:**
 - Interactive menu-driven interface
-- HTTP API client
-- Socket.IO client
-- Secure password input (hidden)
-- User-friendly command-line experience
+- HTTP API client and Socket.IO client
+- Sign up, verify, login, send messages
 
-**Capabilities:**
-- Sign up new users
-- Verify email addresses
-- Login via HTTP
-- Connect via Socket.IO
-- Authenticate via Socket.IO
-- Send real-time messages
-- Resend verification codes
+### 6. SSH Tunnel Support (`config/ssh_tunnel.py`)
 
-### 5. SSH Tunnel Support (`config/ssh_tunnel.py`)
-
-**Purpose:**
-Enable secure access to the server through SSH tunneling for:
-- Remote server access
-- Encrypted communication
-- Port forwarding
-- Secure deployment scenarios
-
-**Features:**
-- SSH key-based authentication
-- Configurable local/remote ports
-- Process management
-- Status monitoring
+**Purpose:** Enable secure access to the server through SSH port forwarding for remote and encrypted deployments.
 
 ## Data Flow
 
 ### Sign Up Flow
 
 ```
-┌─────────┐                ┌────────┐               ┌──────────┐
-│ Client  │                │ Server │               │ Database │
-└────┬────┘                └───┬────┘               └────┬─────┘
-     │                         │                         │
-     │ POST /api/signup        │                         │
-     │ {username, email, pwd}  │                         │
-     ├────────────────────────>│                         │
-     │                         │                         │
-     │                         │ Validate input          │
-     │                         │ Generate hash           │
-     │                         │ Create verification code│
-     │                         │                         │
-     │                         │ INSERT user             │
-     │                         ├────────────────────────>│
-     │                         │                         │
-     │                         │<────────────────────────┤
-     │                         │                         │
-     │                         │ Send verification email │
-     │                         │ (via SMTP/console)      │
-     │                         │                         │
-     │ 201 Created             │                         │
-     │ {message, user_id}      │                         │
-     │<────────────────────────┤                         │
-     │                         │                         │
+Client → POST /api/signup {username, email, password}
+       → Server validates, creates User (is_verified=False)
+       → Generates 6-digit code (24hr expiry)
+       → Sends email (SMTP) or prints to console (dev)
+       ← 201 {message, user_id}
 ```
 
 ### Login Flow
 
 ```
-┌─────────┐                ┌────────┐               ┌──────────┐
-│ Client  │                │ Server │               │ Database │
-└────┬────┘                └───┬────┘               └────┬─────┘
-     │                         │                         │
-     │ POST /api/login         │                         │
-     │ {username, password}    │                         │
-     ├────────────────────────>│                         │
-     │                         │                         │
-     │                         │ SELECT user             │
-     │                         ├────────────────────────>│
-     │                         │                         │
-     │                         │<────────────────────────┤
-     │                         │                         │
-     │                         │ Verify password hash    │
-     │                         │ Check is_verified       │
-     │                         │                         │
-     │ 200 OK                  │                         │
-     │ {message, user}         │                         │
-     │<────────────────────────┤                         │
-     │                         │                         │
+Client → POST /api/login {username, password}
+       → Server looks up user, checks password hash
+       → Rejects with 403 if is_verified=False
+       ← 200 {user, characters[], server_status}
 ```
 
 ### Socket.IO Authentication Flow
 
 ```
-┌─────────┐                ┌────────┐               ┌──────────┐
-│ Client  │                │ Server │               │ Database │
-└────┬────┘                └───┬────┘               └────┬─────┘
-     │                         │                         │
-     │ Socket.IO Connect       │                         │
-     ├────────────────────────>│                         │
-     │                         │                         │
-     │ 'connected' event       │                         │
-     │<────────────────────────┤                         │
-     │                         │                         │
-     │ 'authenticate' event    │                         │
-     │ {username, password}    │                         │
-     ├────────────────────────>│                         │
-     │                         │                         │
-     │                         │ SELECT user             │
-     │                         ├────────────────────────>│
-     │                         │                         │
-     │                         │<────────────────────────┤
-     │                         │                         │
-     │                         │ Verify credentials      │
-     │                         │                         │
-     │ 'auth_success' event    │                         │
-     │ {message, user}         │                         │
-     │<────────────────────────┤                         │
-     │                         │                         │
+Client → socket.connect()
+       ← 'connected' {server_status}
+Client → emit('authenticate', {username, password})
+       ← 'auth_success' {user, characters[], server_status}
+    or ← 'auth_error'   {error}
+```
+
+### Terminal Command Flow
+
+```
+Client → emit('command', {cmd: 'who', args: []})
+       ← 'cmd_response' {output: [...ANSI lines...], error: null}
 ```
 
 ## Security Considerations
 
-### Password Security
-- Passwords are hashed using Werkzeug's `generate_password_hash`
-- Uses PBKDF2-SHA256 algorithm
-- Passwords are never stored in plain text
-- Password validation on both client and server
-
-### Email Verification
-- 6-digit random verification codes
-- Codes expire after 24 hours
-- One-time use (cleared after verification)
-- Secure random number generation
-
-### Communication Security
-- CORS configured (should be restricted in production)
-- HTTPS recommended for production
-- SSH tunnel support for encrypted channels
-- Environment variables for sensitive configuration
-
-### Session Management
-- No persistent sessions stored
-- Stateless authentication
-- Client-side session management
-- Socket.IO session isolation per connection
-
-## Deployment Options
-
-### 1. Local Development
-```bash
-./start_server.sh
-./start_client.sh
-```
-
-### 2. Docker Compose
-```bash
-docker-compose up -d
-```
-
-### 3. Production Deployment
-- Use production WSGI server (gunicorn/uwsgi)
-- Configure PostgreSQL database
-- Set up reverse proxy (nginx/apache)
-- Enable HTTPS with SSL/TLS certificates
-- Configure real SMTP server
-- Set strong SECRET_KEY
-- Implement rate limiting
-- Set up monitoring and logging
+- Passwords hashed with Werkzeug's PBKDF2-SHA256
+- 6-digit verification codes generated via `secrets.randbelow` (cryptographically random)
+- Codes expire after 24 hours and are cleared after use
+- CORS currently wide-open (`*`) — restrict to specific origins in production
+- HTTPS strongly recommended for production
+- SSH tunnel support for encrypted remote channels
+- Sensitive config via environment variables (`.env`, never committed)
 
 ## Database Schema
 
@@ -299,13 +203,28 @@ docker-compose up -d
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | Integer | Primary Key | Unique user identifier |
-| username | String(80) | Unique, Not Null | User's login name |
-| email | String(120) | Unique, Not Null | User's email address |
-| password_hash | String(255) | Not Null | Hashed password |
+| username | String(80) | Unique, Not Null | Login name |
+| email | String(120) | Unique, Not Null | Email address |
+| password_hash | String(255) | Not Null | Werkzeug password hash |
 | is_verified | Boolean | Default: False | Email verification status |
-| verification_code | String(6) | Nullable | Current verification code |
-| verification_code_expires | DateTime | Nullable | Code expiration time |
-| created_at | DateTime | Default: now() | Account creation timestamp |
+| verification_code | String(6) | Nullable | Active verification code |
+| verification_code_expires | DateTime | Nullable | Code expiration |
+| created_at | DateTime | Default: now() | Account creation time |
+
+### Character Table
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | Integer | Primary Key | Character ID |
+| user_id | Integer | FK → User, Not Null | Owning account |
+| name | String(80) | Unique, Not Null | Character name |
+| description | String(255) | Default: '' | Short description |
+| level | Integer | Default: 1 | Character level |
+| created_at | DateTime | Default: now() | Creation time |
+| last_login | DateTime | Nullable | Last play time |
+| is_active | Boolean | Default: True | Soft-delete flag |
+
+> **Note**: No migrations are configured. Schema changes require deleting `server/auth.db` and restarting.
 
 ## Configuration Management
 
@@ -315,7 +234,7 @@ docker-compose up -d
 |----------|---------|-------------|
 | SECRET_KEY | random | Flask secret key |
 | PORT | 5000 | Server port |
-| DATABASE_URL | sqlite:///auth.db | Database connection |
+| DATABASE_URL | sqlite:///auth.db | Database connection string |
 | SMTP_SERVER | smtp.gmail.com | SMTP server address |
 | SMTP_PORT | 587 | SMTP server port |
 | SMTP_USERNAME | - | SMTP username |
@@ -325,121 +244,52 @@ docker-compose up -d
 | SSH_PORT | 22 | SSH tunnel port |
 | SSH_USER | - | SSH username |
 | SSH_KEY_PATH | - | SSH private key path |
+| SERVER_URL | http://localhost:5000 | Client target URL |
+
+## Deployment Options
+
+### 1. Local Development
+```bash
+./start_server.sh  # starts server at http://localhost:5000
+./start_client.sh  # starts Python CLI client
+```
+
+### 2. Docker Compose
+```bash
+docker-compose up -d
+```
+
+### 3. Production Recommendations
+- Use production WSGI server (gunicorn)
+- Configure PostgreSQL database
+- Set up reverse proxy (nginx) with HTTPS
+- Restrict CORS to specific origins
+- Set a strong random `SECRET_KEY`
+- Configure real SMTP credentials
+- Add rate limiting
 
 ## Scalability Considerations
 
 ### Current Architecture
 - Single server instance
-- SQLite database
-- In-memory sessions
-- No load balancing
+- SQLite database (single-writer)
+- In-memory session tracking (lost on restart)
 
 ### Production Scaling Options
-1. **Horizontal Scaling**
-   - Multiple server instances
-   - Load balancer (nginx/HAProxy)
-   - Session persistence (Redis)
-   - Database replication
-
-2. **Database**
-   - PostgreSQL for production
-   - Connection pooling
-   - Read replicas
-   - Database clustering
-
-3. **Caching**
-   - Redis for session storage
-   - Cache API responses
-   - Rate limiting with Redis
-
-4. **Message Queue**
-   - Async email sending
-   - Task queue (Celery)
-   - Background jobs
-
-## Testing Strategy
-
-### Unit Tests
-- Model validation
-- Password hashing
-- Verification code generation
-- API endpoint logic
-
-### Integration Tests
-- HTTP API endpoints
-- Socket.IO events
-- Database operations
-- Email service
-
-### End-to-End Tests
-- Complete user flows
-- Web interface interactions
-- Client application functionality
-
-## Monitoring and Logging
-
-### Recommended Monitoring
-- Application performance (response times)
-- Error rates and exceptions
-- Database query performance
-- Active connections
-- Resource usage (CPU, memory)
-
-### Logging Strategy
-- Application logs (Flask)
-- Access logs (nginx)
-- Error logs
-- Audit logs (authentication events)
-- Debug logs (development only)
+1. **Database**: PostgreSQL with connection pooling
+2. **Horizontal scaling**: Multiple instances + Redis for shared session state
+3. **Async email**: Celery task queue
+4. **Caching**: Redis for rate limiting and response caching
 
 ## Future Enhancements
 
-1. **Authentication**
-   - OAuth2 integration
-   - Two-factor authentication (2FA)
-   - Password reset functionality
-   - Remember me / persistent sessions
-
-2. **Features**
-   - User profiles
-   - Role-based access control (RBAC)
-   - API rate limiting
-   - Account deactivation
-
-3. **Infrastructure**
-   - Kubernetes deployment
-   - Auto-scaling
-   - CDN integration
-   - Multi-region support
-
-4. **Security**
-   - CAPTCHA integration
-   - Brute force protection
-   - IP whitelisting/blacklisting
-   - Security headers
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Port Already in Use**
-   - Check for existing server process
-   - Use different port via PORT environment variable
-
-2. **Database Locked**
-   - SQLite limitation with concurrent access
-   - Consider PostgreSQL for production
-
-3. **Email Not Sending**
-   - Check SMTP credentials
-   - Verify firewall rules
-   - Check console output in development
-
-4. **Socket.IO Connection Failed**
-   - Verify server is running
-   - Check CORS configuration
-   - Inspect browser console for errors
+1. **Game features**: Rooms/zones, items, combat, quests
+2. **Authentication**: OAuth2, 2FA, password reset, persistent sessions (JWT)
+3. **RBAC**: Roles, admin commands, character permissions
+4. **Infrastructure**: Kubernetes, auto-scaling, CDN
+5. **Security**: Rate limiting, CAPTCHA, brute-force protection
 
 ## License
 
-Apache License 2.0 - See LICENSE file for details
+Apache License 2.0 — see LICENSE file for details
+

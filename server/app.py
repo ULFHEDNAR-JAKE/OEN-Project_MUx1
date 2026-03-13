@@ -22,6 +22,8 @@ db = SQLAlchemy(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Database Models
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -54,10 +56,10 @@ class Character(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     is_active = db.Column(db.Boolean, default=True)
-    
+
     # Relationship back to user
     user = db.relationship('User', backref=db.backref('characters', lazy=True))
-    
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -78,7 +80,7 @@ def get_server_status():
     uptime_seconds = int(time.time() - SERVER_START_TIME)
     hours, remainder = divmod(uptime_seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
-    
+
     return {
         'uptime': f'{hours:02d}:{minutes:02d}:{seconds:02d}',
         'uptime_seconds': uptime_seconds,
@@ -94,29 +96,34 @@ def index():
     return send_from_directory('static', 'index.html')
 
 # Serve terminal interface
+
+
 @app.route('/terminal')
 def terminal():
     return send_from_directory('static', 'terminal.html')
 
 # REST API Endpoints
+
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'Server is running'})
 
+
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.get_json()
-    
+
     if not data or not data.get('username') or not data.get('email') or not data.get('password'):
         return jsonify({'error': 'Missing required fields'}), 400
-    
+
     # Check if user already exists
     if User.query.filter_by(username=data['username']).first():
         return jsonify({'error': 'Username already exists'}), 400
-    
+
     if User.query.filter_by(email=data['email']).first():
         return jsonify({'error': 'Email already registered'}), 400
-    
+
     # Create new user
     user = User(
         username=data['username'],
@@ -124,64 +131,66 @@ def signup():
     )
     user.set_password(data['password'])
     verification_code = user.generate_verification_code()
-    
+
     db.session.add(user)
     db.session.commit()
-    
+
     # Send verification email
     send_verification_email(user.email, verification_code)
-    
+
     return jsonify({
         'message': 'User created successfully. Please check your email for verification code.',
         'user_id': user.id
     }), 201
 
+
 @app.route('/api/verify-email', methods=['POST'])
 def verify_email():
     data = request.get_json()
-    
+
     if not data or not data.get('email') or not data.get('code'):
         return jsonify({'error': 'Missing required fields'}), 400
-    
+
     user = User.query.filter_by(email=data['email']).first()
-    
+
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    
+
     if user.is_verified:
         return jsonify({'message': 'Email already verified'}), 200
-    
+
     if not user.verification_code or user.verification_code != data['code']:
         return jsonify({'error': 'Invalid verification code'}), 400
-    
+
     if user.verification_code_expires < datetime.utcnow():
         return jsonify({'error': 'Verification code expired'}), 400
-    
+
     user.is_verified = True
     user.verification_code = None
     user.verification_code_expires = None
     db.session.commit()
-    
+
     return jsonify({'message': 'Email verified successfully'}), 200
+
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
-    
+
     if not data or not data.get('username') or not data.get('password'):
         return jsonify({'error': 'Missing required fields'}), 400
-    
+
     user = User.query.filter_by(username=data['username']).first()
-    
+
     if not user or not user.check_password(data['password']):
         return jsonify({'error': 'Invalid username or password'}), 401
-    
+
     if not user.is_verified:
         return jsonify({'error': 'Email not verified. Please verify your email first.'}), 403
-    
+
     # Get user's characters
     characters = [char.to_dict() for char in user.characters if char.is_active]
-    
+
     return jsonify({
         'message': 'Login successful',
         'user': {
@@ -206,7 +215,7 @@ def get_characters():
     user_id = request.args.get('user_id', type=int)
     if not user_id:
         return jsonify({'error': 'user_id required'}), 400
-    
+
     characters = Character.query.filter_by(user_id=user_id, is_active=True).all()
     return jsonify({'characters': [char.to_dict() for char in characters]}), 200
 
@@ -215,56 +224,59 @@ def get_characters():
 def create_character():
     """Create a new character for a user"""
     data = request.get_json()
-    
+
     if not data or not data.get('user_id') or not data.get('name'):
         return jsonify({'error': 'Missing required fields (user_id, name)'}), 400
-    
+
     # Check if user exists
-    user = User.query.get(data['user_id'])
+    user = db.session.get(User, data['user_id'])
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    
+
     # Check if character name is taken
     if Character.query.filter_by(name=data['name']).first():
         return jsonify({'error': 'Character name already taken'}), 400
-    
+
     character = Character(
         user_id=data['user_id'],
         name=data['name'],
         description=data.get('description', '')
     )
-    
+
     db.session.add(character)
     db.session.commit()
-    
+
     return jsonify({
         'message': 'Character created successfully',
         'character': character.to_dict()
     }), 201
 
+
 @app.route('/api/resend-verification', methods=['POST'])
 def resend_verification():
     data = request.get_json()
-    
+
     if not data or not data.get('email'):
         return jsonify({'error': 'Email is required'}), 400
-    
+
     user = User.query.filter_by(email=data['email']).first()
-    
+
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    
+
     if user.is_verified:
         return jsonify({'message': 'Email already verified'}), 200
-    
+
     verification_code = user.generate_verification_code()
     db.session.commit()
-    
+
     send_verification_email(user.email, verification_code)
-    
+
     return jsonify({'message': 'Verification code sent'}), 200
 
 # Socket.IO Events
+
+
 @socketio.on('connect')
 def handle_connect():
     print(f'Client connected: {request.sid}')
@@ -280,6 +292,7 @@ def handle_connect():
         'server_status': get_server_status()
     })
 
+
 @socketio.on('disconnect')
 def handle_disconnect():
     print(f'Client disconnected: {request.sid}')
@@ -287,35 +300,36 @@ def handle_disconnect():
     if request.sid in connected_sessions:
         del connected_sessions[request.sid]
 
+
 @socketio.on('authenticate')
 def handle_authenticate(data):
     username = data.get('username')
     password = data.get('password')
-    
+
     if not username or not password:
         emit('auth_error', {'error': 'Missing credentials'})
         return
-    
+
     user = User.query.filter_by(username=username).first()
-    
+
     if not user or not user.check_password(password):
         emit('auth_error', {'error': 'Invalid credentials'})
         return
-    
+
     if not user.is_verified:
         emit('auth_error', {'error': 'Email not verified'})
         return
-    
+
     # Update connected session with user info
     connected_sessions[request.sid] = {
         'user_id': user.id,
         'username': user.username,
         'connected_at': datetime.utcnow()
     }
-    
+
     # Get user's characters
     characters = [char.to_dict() for char in user.characters if char.is_active]
-    
+
     emit('auth_success', {
         'message': 'Authentication successful',
         'user': {
@@ -327,20 +341,23 @@ def handle_authenticate(data):
         'server_status': get_server_status()
     })
 
+
 @socketio.on('message')
 def handle_message(data):
     print(f"Received message: {data}")
     emit('message', {'echo': data}, broadcast=False)
 
 # Terminal command handler - processes text commands from terminal UI
+
+
 @socketio.on('command')
 def handle_command(data):
     """Handle commands from terminal interface"""
     cmd = data.get('cmd', '').lower()
     args = data.get('args', [])
-    
+
     response = {'output': [], 'error': None}
-    
+
     if cmd == 'who':
         # List connected users
         response['output'] = [
@@ -349,7 +366,7 @@ def handle_command(data):
             '\x1b[33m║\x1b[0m         \x1b[1mCONNECTED USERS\x1b[0m              \x1b[33m║\x1b[0m',
             '\x1b[33m╠════════════════════════════════════════╣\x1b[0m'
         ]
-        
+
         if connected_sessions:
             for sid, session in connected_sessions.items():
                 username = session.get('username', 'guest')
@@ -360,7 +377,7 @@ def handle_command(data):
                     time_str = f'{mins}m' if mins > 0 else '<1m'
                 else:
                     time_str = '?'
-                
+
                 # Mark current user
                 marker = ' \x1b[32m<- you\x1b[0m' if sid == request.sid else ''
                 response['output'].append(
@@ -368,13 +385,13 @@ def handle_command(data):
                 )
         else:
             response['output'].append('\x1b[33m║\x1b[0m  No users connected')
-        
+
         response['output'].extend([
             '\x1b[33m╚════════════════════════════════════════╝\x1b[0m',
             f'  Total: {len(connected_sessions)} user(s) online',
             ''
         ])
-        
+
     elif cmd == 'server_info':
         status = get_server_status()
         response['output'] = [
@@ -389,12 +406,12 @@ def handle_command(data):
             '\x1b[33m╚════════════════════════════════════════╝\x1b[0m',
             ''
         ]
-    
+
     elif cmd == 'characters':
         # Get current user's characters
         session = connected_sessions.get(request.sid, {})
         user_id = session.get('user_id')
-        
+
         if not user_id:
             response['error'] = 'You must be logged in to view characters.'
         else:
@@ -405,7 +422,7 @@ def handle_command(data):
                 '\x1b[33m║\x1b[0m          \x1b[1mYOUR CHARACTERS\x1b[0m             \x1b[33m║\x1b[0m',
                 '\x1b[33m╠════════════════════════════════════════╣\x1b[0m'
             ]
-            
+
             if characters:
                 for char in characters:
                     response['output'].append(
@@ -413,23 +430,23 @@ def handle_command(data):
                     )
             else:
                 response['output'].append('\x1b[33m║\x1b[0m  No characters yet. Use \x1b[36mcreate <name>\x1b[0m')
-            
+
             response['output'].extend([
                 '\x1b[33m╚════════════════════════════════════════╝\x1b[0m',
                 ''
             ])
-    
+
     elif cmd == 'create' and args:
         # Create a new character
         session = connected_sessions.get(request.sid, {})
         user_id = session.get('user_id')
-        
+
         if not user_id:
             response['error'] = 'You must be logged in to create a character.'
         else:
             char_name = args[0]
             description = ' '.join(args[1:]) if len(args) > 1 else ''
-            
+
             # Check if name is taken
             if Character.query.filter_by(name=char_name).first():
                 response['error'] = f'Character name "{char_name}" is already taken.'
@@ -441,7 +458,7 @@ def handle_command(data):
                 )
                 db.session.add(character)
                 db.session.commit()
-                
+
                 response['output'] = [
                     '',
                     f'\x1b[32m✓ Character "{char_name}" created successfully!\x1b[0m',
@@ -449,12 +466,14 @@ def handle_command(data):
                 ]
     else:
         response['error'] = f'Unknown server command: {cmd}'
-    
+
     emit('cmd_response', response)
+
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    
+
     port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port, debug=True)
+    debug = os.environ.get('DEBUG', 'false').lower() == 'true'
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug)

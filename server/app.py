@@ -88,6 +88,22 @@ def get_server_status():
     }
 
 
+def authenticate_request_user():
+    """Authenticate a request using HTTP Basic auth"""
+    auth = request.authorization
+    if not auth or not auth.username or not auth.password:
+        return None, (jsonify({'error': 'Authentication required'}), 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+    
+    user = User.query.filter_by(username=auth.username).first()
+    if not user or not user.check_password(auth.password):
+        return None, (jsonify({'error': 'Invalid credentials'}), 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+    
+    if not user.is_verified:
+        return None, (jsonify({'error': 'Email not verified. Please verify your email first.'}), 403)
+    
+    return user, None
+
+
 # Serve web interface
 @app.route('/')
 def index():
@@ -202,34 +218,32 @@ def server_status():
 
 @app.route('/api/characters', methods=['GET'])
 def get_characters():
-    """Get characters for a user (requires user_id query param)"""
-    user_id = request.args.get('user_id', type=int)
-    if not user_id:
-        return jsonify({'error': 'user_id required'}), 400
+    """Get characters for the authenticated user"""
+    user, error_response = authenticate_request_user()
+    if error_response:
+        return error_response
     
-    characters = Character.query.filter_by(user_id=user_id, is_active=True).all()
+    characters = Character.query.filter_by(user_id=user.id, is_active=True).all()
     return jsonify({'characters': [char.to_dict() for char in characters]}), 200
 
 
 @app.route('/api/characters', methods=['POST'])
 def create_character():
-    """Create a new character for a user"""
+    """Create a new character for the authenticated user"""
+    user, error_response = authenticate_request_user()
+    if error_response:
+        return error_response
+    
     data = request.get_json()
-    
-    if not data or not data.get('user_id') or not data.get('name'):
-        return jsonify({'error': 'Missing required fields (user_id, name)'}), 400
-    
-    # Check if user exists
-    user = User.query.get(data['user_id'])
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
+    if not data or not data.get('name'):
+        return jsonify({'error': 'Missing required fields (name)'}), 400
     
     # Check if character name is taken
     if Character.query.filter_by(name=data['name']).first():
         return jsonify({'error': 'Character name already taken'}), 400
     
     character = Character(
-        user_id=data['user_id'],
+        user_id=user.id,
         name=data['name'],
         description=data.get('description', '')
     )

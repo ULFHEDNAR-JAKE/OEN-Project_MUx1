@@ -41,7 +41,7 @@ Think of it as the back-end engine for a text-based online game or interactive s
 │   ├── email_service.py # Email verification service (SMTP / console fallback)
 │   └── static/
 │       ├── index.html   # Web auth UI  (served at /)
-│       └── terminal.html# MUD-style xterm.js terminal (served at /terminal)
+│       └── terminal.html # MUD-style xterm.js terminal (served at /terminal)
 ├── client/              # Python CLI client
 │   └── client.py        # Interactive client with Socket.IO support
 ├── config/              # Configuration utilities

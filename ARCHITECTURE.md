@@ -11,7 +11,7 @@ OEN-Project_MUx1 is a **MUD-style multi-user experience server** (MUx = Multi-Us
 │                      Client Layer                            │
 ├──────────────┬──────────────┬──────────────┬───────────────┤
 │ Web Auth UI  │  MUD Terminal│ Python CLI   │ External APIs │
-│  /index.html │ /terminal    │ client.py    │ (REST)        │
+│  /           │ /terminal    │ client.py    │ (REST)        │
 └──────┬───────┴──────┬───────┴──────┬───────┴──────┬────────┘
        │              │              │              │
        │ HTTP/WS      │ Socket.IO    │ HTTP/WS      │ HTTP
@@ -93,7 +93,7 @@ OEN-Project_MUx1 is a **MUD-style multi-user experience server** (MUx = Multi-Us
 
 | Event | Direction | Purpose |
 |-------|-----------|---------|
-| `connect` | Server→Client | Connection established (server status sent) |
+| `connect` | Client→Server | Client lifecycle event; server registers session and sends status |
 | `connected` | Server→Client | Send connection info |
 | `authenticate` | Client→Server | Authenticate via WebSocket |
 | `auth_success` | Server→Client | Auth successful (user, characters, server status) |
@@ -124,7 +124,7 @@ OEN-Project_MUx1 is a **MUD-style multi-user experience server** (MUx = Multi-Us
 
 **Features:**
 - Single-page application served at `/`
-- Tab-based interface: Sign Up, Login, Email Verify
+- Tab-based interface: Sign Up, Login, Email Verify, Chat (Socket.IO message echo)
 - Real-time status indicators
 - Socket.IO client integration
 

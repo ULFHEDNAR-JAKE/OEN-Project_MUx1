@@ -7,14 +7,15 @@ This validates that the requirements file is properly formatted and contains exp
 import re
 import sys
 
+
 def validate_requirements(file_path):
     """Validate requirements.txt file format and content"""
-    
+
     print("=" * 60)
     print("Validating requirements.txt")
     print("=" * 60)
     print()
-    
+
     expected_packages = {
         'Flask': '3.1.2',
         'Flask-SocketIO': '5.5.1',
@@ -25,31 +26,31 @@ def validate_requirements(file_path):
         'requests': '2.32.5',
         'python-engineio': '4.12.3'
     }
-    
+
     all_valid = True
     found_packages = {}
-    
+
     try:
         with open(file_path, 'r') as f:
             lines = f.readlines()
-        
+
         # Parse requirements
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
             if not line or line.startswith('#'):
                 continue
-            
+
             # Match package==version format
             match = re.match(r'^([a-zA-Z0-9_-]+)==([0-9.]+)$', line)
             if not match:
                 print(f"✗ Line {line_num}: Invalid format: {line}")
                 all_valid = False
                 continue
-            
+
             package_name = match.group(1)
             version = match.group(2)
             found_packages[package_name] = version
-        
+
         # Verify all expected packages are present
         print("Package Verification:")
         print("-" * 60)
@@ -64,12 +65,12 @@ def validate_requirements(file_path):
             else:
                 print(f"✗ {package:25} MISSING")
                 all_valid = False
-        
+
         # Check for unexpected packages
         extra_packages = set(found_packages.keys()) - set(expected_packages.keys())
         if extra_packages:
             print(f"\n⚠ Unexpected packages found: {', '.join(extra_packages)}")
-        
+
         print()
         print("=" * 60)
         if all_valid:
@@ -78,7 +79,7 @@ def validate_requirements(file_path):
         else:
             print("✗ Requirements file has issues")
             return 1
-            
+
     except FileNotFoundError:
         print(f"✗ File not found: {file_path}")
         return 1
@@ -86,9 +87,10 @@ def validate_requirements(file_path):
         print(f"✗ Error reading file: {e}")
         return 1
 
+
 if __name__ == '__main__':
     file_path = 'requirements.txt'
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
-    
+
     sys.exit(validate_requirements(file_path))

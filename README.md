@@ -1,27 +1,51 @@
-# OEN-Project_MUx1 - Client/Server Authentication Application
+# OEN-Project_MUx1 - Multi-User Experience (MUx) Server
 
-A comprehensive client-server authentication system with email verification, supporting both HTTP REST API and Socket.IO real-time communication. The application includes SSH tunnel support for secure remote access and Docker integration for seamless deployment.
+## What is this?
+
+**OEN-Project_MUx1** is the foundation of a **MUD-style multi-user online experience server** (MUx = Multi-User eXperience). It provides the core infrastructure for running a persistent multi-user world where players can register accounts, create named characters, connect in real time, and interact through a browser-based terminal or a Python CLI client.
+
+Think of it as the back-end engine for a text-based online game or interactive shared world: users sign up, verify their email, create characters, log in, and communicate with other connected players — all through a classic MUD-inspired terminal interface powered by [xterm.js](https://xtermjs.org/) and [Socket.IO](https://socket.io/).
+
+### Key capabilities
+
+| Capability | Description |
+|------------|-------------|
+| **Account system** | Register, email-verify, and log in as a named user |
+| **Character system** | Create and manage multiple characters per account |
+| **Real-time terminal** | Browser-based xterm.js terminal with MUD-style commands |
+| **Live user list** | `who` command shows all currently connected players |
+| **REST API** | Full HTTP API for integration with any client |
+| **Python CLI client** | Interactive command-line client with Socket.IO support |
+| **SSH tunnel support** | Secure remote access through SSH tunnels |
+| **Docker deployment** | One-command spin-up via Docker Compose |
 
 ## Features
 
 - **User Authentication**: Sign up, login with email verification
-- **Email Verification**: Authentication codes sent via email
-- **Dual Communication**: REST API and Socket.IO support
+- **Email Verification**: Authentication codes sent via email (or printed to console in dev mode)
+- **Character Management**: Create and list named characters with levels and descriptions
+- **MUD-style Terminal**: Browser-based xterm.js terminal at `/terminal` with commands: `who`, `server_info`, `characters`, `create <name>`
+- **Web Auth UI**: Form-based sign-up/login interface at `/`
+- **Dual Communication**: REST API (`/api/*`) and Socket.IO real-time events
+- **Server Status**: Live uptime and connected-user count via `/api/server-status`
 - **SSH Tunnel Support**: Secure remote access through SSH tunnels
 - **Docker Integration**: Seamless deployment with Docker Compose
-- **Database**: SQLite with SQLAlchemy ORM
-- **Security**: Password hashing with Werkzeug
+- **Database**: SQLite (dev) / PostgreSQL (prod) via SQLAlchemy ORM
+- **Security**: Werkzeug password hashing, cryptographically random verification codes
 
 ## Architecture
 
 ```
 ├── server/               # Server application
-│   ├── app.py           # Flask server with Socket.IO
-│   └── email_service.py # Email verification service
-├── client/              # Client application
-│   └── client.py        # Interactive client with Socket.IO
-├── config/              # Configuration
-│   └── ssh_tunnel.py    # SSH tunnel utilities
+│   ├── app.py           # Flask + Socket.IO server, REST API, database models
+│   ├── email_service.py # Email verification service (SMTP / console fallback)
+│   └── static/
+│       ├── index.html   # Web auth UI  (served at /)
+│       └── terminal.html # MUD-style xterm.js terminal (served at /terminal)
+├── client/              # Python CLI client
+│   └── client.py        # Interactive client with Socket.IO support
+├── config/              # Configuration utilities
+│   └── ssh_tunnel.py    # SSH tunnel helper
 ├── docker-compose.yml   # Docker orchestration
 ├── Dockerfile.server    # Server Docker image
 ├── Dockerfile.client    # Client Docker image
@@ -115,6 +139,12 @@ docker-compose up server
 ```
 
 The server will start on `http://localhost:5000`
+
+| URL | Interface |
+|-----|-----------|
+| `http://localhost:5000/` | Web auth UI (sign up / login) |
+| `http://localhost:5000/terminal` | MUD-style xterm.js terminal |
+| `http://localhost:5000/api/health` | Health check endpoint |
 
 ### Running the Client
 
@@ -219,11 +249,9 @@ Response:
 ```json
 {
   "message": "Login successful",
-  "user": {
-    "id": 1,
-    "username": "user123",
-    "email": "user@example.com"
-  }
+  "user": { "id": 1, "username": "user123", "email": "user@example.com" },
+  "characters": [...],
+  "server_status": { "uptime": "00:12:34", "connected_users": 3, "total_users": 42, "status": "online" }
 }
 ```
 
@@ -243,28 +271,91 @@ Response:
 }
 ```
 
+#### Server Status
+```
+GET /api/server-status
+```
+Response:
+```json
+{
+  "uptime": "01:23:45",
+  "uptime_seconds": 5025,
+  "connected_users": 3,
+  "total_users": 42,
+  "status": "online"
+}
+```
+
+#### List Characters
+```
+GET /api/characters?user_id=1
+```
+Response:
+```json
+{
+  "characters": [
+    { "id": 1, "name": "Thorin", "description": "Dwarf warrior", "level": 5, "created_at": "...", "last_login": "..." }
+  ]
+}
+```
+
+#### Create Character
+```
+POST /api/characters
+Content-Type: application/json
+
+{
+  "user_id": 1,
+  "name": "Thorin",
+  "description": "A stout dwarf warrior"
+}
+```
+Response:
+```json
+{
+  "message": "Character created successfully",
+  "character": { "id": 1, "name": "Thorin", "description": "A stout dwarf warrior", "level": 1, ... }
+}
+```
+
 ### Socket.IO Events
 
 #### Connect
 - **Event**: `connect`
 - **Description**: Establish WebSocket connection
-- **Response**: `connected` event with connection details
+- **Response**: `connected` event with server status and connection details
 
 #### Authenticate
 - **Event**: `authenticate`
 - **Payload**: 
   ```json
-  {
-    "username": "user123",
-    "password": "securepassword"
-  }
+  { "username": "user123", "password": "securepassword" }
   ```
-- **Response**: `auth_success` or `auth_error`
+- **Response**: `auth_success` (with user info, characters, and server status) or `auth_error`
 
 #### Send Message
 - **Event**: `message`
 - **Payload**: Any message string
 - **Response**: `message` event with echo
+
+#### Terminal Command
+- **Event**: `command`
+- **Payload**:
+  ```json
+  { "cmd": "who", "args": [] }
+  ```
+- **Response**: `cmd_response` event with formatted terminal output
+
+### Terminal Commands
+
+The browser-based terminal at `/terminal` supports the following MUD-style commands:
+
+| Command | Description |
+|---------|-------------|
+| `who` | List all currently connected users |
+| `server_info` | Display server uptime and stats |
+| `characters` | List your characters (requires login) |
+| `create <name> [description]` | Create a new character (requires login) |
 
 ## Configuration
 
@@ -330,28 +421,39 @@ The application uses a Docker network (`auth_network`) for service communication
 ### Project Structure
 ```
 server/
-  app.py              # Main Flask application
-  email_service.py    # Email sending functionality
+  app.py              # Main Flask application, REST API, Socket.IO events, database models
+  email_service.py    # Email sending functionality (SMTP / console fallback)
+  static/
+    index.html        # Web auth UI (sign up / login / verify)
+    terminal.html     # MUD-style xterm.js terminal interface
 
 client/
-  client.py           # Interactive client application
+  client.py           # Interactive Python CLI client
 
 config/
   ssh_tunnel.py       # SSH tunnel utilities
 ```
 
+### Database Models
+
+| Model | Purpose | Key fields |
+|-------|---------|-----------|
+| `User` | Account record | `username`, `email`, `password_hash`, `is_verified` |
+| `Character` | In-world character | `name`, `description`, `level`, `user_id` (FK → User) |
+
+> **Note**: No migrations are configured. Any schema change requires deleting `server/auth.db` and restarting.
+
 ### Testing the Application
 
 1. **Start the server**
-2. **Run the client**
-3. **Follow the interactive menu:**
+2. **Open `http://localhost:5000`** in a browser (web UI) **or run the Python client** (`python client/client.py`)
+3. **Follow the interactive flow:**
    - Sign up with username, email, password
-   - Check console/email for verification code
-   - Verify email with the code
+   - Check server console (dev) or email inbox (prod) for verification code
+   - Verify email with the 6-digit code
    - Login with credentials
-   - Connect via Socket.IO
-   - Authenticate via Socket.IO
-   - Send messages
+   - Open `http://localhost:5000/terminal` to use the MUD-style terminal
+   - Type `who` to see connected users, `characters` to list your characters, `create <name>` to make a new one
 
 ## Troubleshooting
 

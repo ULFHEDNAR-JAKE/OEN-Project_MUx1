@@ -92,11 +92,11 @@ def authenticate_request_user():
     """Authenticate a request using HTTP Basic auth"""
     auth = request.authorization
     if not auth or not auth.username or not auth.password:
-        return None, (jsonify({'error': 'Authentication required'}), 401)
+        return None, (jsonify({'error': 'Authentication required'}), 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
     
     user = User.query.filter_by(username=auth.username).first()
     if not user or not user.check_password(auth.password):
-        return None, (jsonify({'error': 'Invalid credentials'}), 401)
+        return None, (jsonify({'error': 'Invalid credentials'}), 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
     
     if not user.is_verified:
         return None, (jsonify({'error': 'Email not verified. Please verify your email first.'}), 403)

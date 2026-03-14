@@ -3,6 +3,9 @@ from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
+from threading import Thread, Lock
 import secrets
 import os
 import time
@@ -16,6 +19,10 @@ app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///auth.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,   # Discard stale connections before use
+    'pool_recycle': 3600,    # Recycle connections after 1 hour to avoid timeout drops
+}
 
 CORS(app)
 db = SQLAlchemy(app)
@@ -47,7 +54,7 @@ class User(db.Model):
 class Character(db.Model):
     """Character model - users can have multiple characters"""
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
     description = db.Column(db.String(255), default='')
     level = db.Column(db.Integer, default=1)
@@ -72,18 +79,30 @@ class Character(db.Model):
 # Server start time for uptime tracking
 SERVER_START_TIME = time.time()
 
+# Simple time-based cache for the User count so we avoid a full table-scan on
+# every Socket.IO connect, login request, and server_info command.
+_user_count_cache = {'count': 0, 'expires_at': 0.0}
+_user_count_lock = Lock()
+
 
 def get_server_status():
     """Get current server status information"""
     uptime_seconds = int(time.time() - SERVER_START_TIME)
     hours, remainder = divmod(uptime_seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
-    
+
+    now = time.time()
+    with _user_count_lock:
+        if now >= _user_count_cache['expires_at']:
+            _user_count_cache['count'] = User.query.count()
+            _user_count_cache['expires_at'] = now + 60.0  # refresh every 60 seconds
+        total_users = _user_count_cache['count']
+
     return {
         'uptime': f'{hours:02d}:{minutes:02d}:{seconds:02d}',
         'uptime_seconds': uptime_seconds,
         'connected_users': len(connected_sessions),
-        'total_users': User.query.count(),
+        'total_users': total_users,
         'status': 'online'
     }
 
@@ -126,11 +145,13 @@ def signup():
     if not data or not data.get('username') or not data.get('email') or not data.get('password'):
         return jsonify({'error': 'Missing required fields'}), 400
     
-    # Check if user already exists
-    if User.query.filter_by(username=data['username']).first():
-        return jsonify({'error': 'Username already exists'}), 400
-    
-    if User.query.filter_by(email=data['email']).first():
+    # Check if user already exists (single query instead of two)
+    existing = User.query.filter(
+        or_(User.username == data['username'], User.email == data['email'])
+    ).first()
+    if existing:
+        if existing.username == data['username']:
+            return jsonify({'error': 'Username already exists'}), 400
         return jsonify({'error': 'Email already registered'}), 400
     
     # Create new user
@@ -144,8 +165,14 @@ def signup():
     db.session.add(user)
     db.session.commit()
     
-    # Send verification email
-    send_verification_email(user.email, verification_code)
+    # Send verification email in a background thread so SMTP latency doesn't
+    # block the HTTP response. Non-daemon so an in-flight email isn't lost if
+    # the server shuts down immediately after responding.
+    Thread(
+        target=send_verification_email,
+        args=(user.email, verification_code),
+        daemon=False
+    ).start()
     
     return jsonify({
         'message': 'User created successfully. Please check your email for verification code.',
@@ -187,7 +214,7 @@ def login():
     if not data or not data.get('username') or not data.get('password'):
         return jsonify({'error': 'Missing required fields'}), 400
     
-    user = User.query.filter_by(username=data['username']).first()
+    user = User.query.options(joinedload(User.characters)).filter_by(username=data['username']).first()
     
     if not user or not user.check_password(data['password']):
         return jsonify({'error': 'Invalid username or password'}), 401
@@ -274,7 +301,11 @@ def resend_verification():
     verification_code = user.generate_verification_code()
     db.session.commit()
     
-    send_verification_email(user.email, verification_code)
+    Thread(
+        target=send_verification_email,
+        args=(user.email, verification_code),
+        daemon=False
+    ).start()
     
     return jsonify({'message': 'Verification code sent'}), 200
 
@@ -310,7 +341,7 @@ def handle_authenticate(data):
         emit('auth_error', {'error': 'Missing credentials'})
         return
     
-    user = User.query.filter_by(username=username).first()
+    user = User.query.options(joinedload(User.characters)).filter_by(username=username).first()
     
     if not user or not user.check_password(password):
         emit('auth_error', {'error': 'Invalid credentials'})

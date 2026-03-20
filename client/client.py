@@ -1,5 +1,7 @@
 import socketio
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import os
 import getpass
 from typing import Optional
@@ -11,6 +13,18 @@ class AuthClient:
         self.sio = socketio.Client()
         self.authenticated = False
         self.current_user = None
+
+        # Persistent HTTP session with automatic retry on transient failures
+        self.session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["POST", "GET"],
+        )
+        retry_adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount('http://', retry_adapter)
+        self.session.mount('https://', retry_adapter)
         
         # Setup Socket.IO event handlers
         self.setup_socketio_handlers()
@@ -53,13 +67,14 @@ class AuthClient:
     def signup(self, username: str, email: str, password: str) -> bool:
         """Sign up a new user"""
         try:
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/signup",
                 json={
                     'username': username,
                     'email': email,
                     'password': password
-                }
+                },
+                timeout=10
             )
             
             if response.status_code == 201:
@@ -78,12 +93,13 @@ class AuthClient:
     def verify_email(self, email: str, code: str) -> bool:
         """Verify email with the provided code"""
         try:
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/verify-email",
                 json={
                     'email': email,
                     'code': code
-                }
+                },
+                timeout=10
             )
             
             if response.status_code == 200:
@@ -102,12 +118,13 @@ class AuthClient:
     def login_http(self, username: str, password: str) -> bool:
         """Login via HTTP API"""
         try:
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/login",
                 json={
                     'username': username,
                     'password': password
-                }
+                },
+                timeout=10
             )
             
             if response.status_code == 200:
@@ -149,9 +166,10 @@ class AuthClient:
     def resend_verification(self, email: str) -> bool:
         """Resend verification code"""
         try:
-            response = requests.post(
+            response = self.session.post(
                 f"{self.api_url}/resend-verification",
-                json={'email': email}
+                json={'email': email},
+                timeout=10
             )
             
             if response.status_code == 200:

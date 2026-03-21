@@ -313,6 +313,13 @@
                     if (data.error) {
                         this.writeLine(`\x1b[31m${data.error}\x1b[0m`);
                     }
+                    // Show energy summary when the server includes it.
+                    if (data.energy !== undefined) {
+                        const cost = data.energy_cost || 0;
+                        const bar = this.energyBar(data.energy, data.max_energy);
+                        const costStr = cost > 0 ? ` \x1b[33m(-${cost} AP)\x1b[0m` : '';
+                        this.writeLine(`\x1b[90mEnergy: ${bar} ${data.energy}/${data.max_energy}${costStr}\x1b[0m`);
+                    }
                     this.prompt();
                 });
             }
@@ -511,12 +518,12 @@
                     '\x1b[33m║\x1b[0m    logout              - Log out                         \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m  \x1b[32mCharacters:\x1b[0m                                            \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    characters          - List your characters            \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    create <name>       - Create a new character          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    characters          - List your characters  (1 AP)    \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    create <name>       - Create a new character (5 AP)   \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m  \x1b[32mCommunication:\x1b[0m                                         \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m    say <message>       - Send a message                  \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    who                 - List connected users            \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m    who                 - List connected users   (1 AP)   \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m    whoami              - Display current user            \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m  \x1b[32mUtilities:\x1b[0m                                             \x1b[33m║\x1b[0m',
@@ -526,6 +533,9 @@
                     '\x1b[33m║\x1b[0m    clear               - Clear the terminal              \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m    version             - Show version info               \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m    quit                - Disconnect                      \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m  \x1b[90mAP = Action Points (energy). Costs are fixed and never   \x1b[33m║\x1b[0m',
+                    '\x1b[33m║\x1b[0m  \x1b[90mincrease. Regen: 10 AP/min up to 100 AP max.            \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
                     '\x1b[33m║\x1b[0m  Type \x1b[36mhelp <command>\x1b[0m for detailed usage.                \x1b[33m║\x1b[0m',
                     '\x1b[33m╚══════════════════════════════════════════════════════════╝\x1b[0m',
@@ -974,6 +984,19 @@
                 const mins = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
                 const secs = (diff % 60).toString().padStart(2, '0');
                 return `${hours}:${mins}:${secs}`;
+            }
+
+            /**
+             * Build a compact ASCII progress bar for the energy display.
+             * e.g.  [████████░░]  75/100
+             */
+            energyBar(current, max) {
+                if (!max || max <= 0) return '[----------]';
+                const width = 10;
+                const filled = Math.round((current / max) * width);
+                const empty = width - filled;
+                const color = current > max * 0.5 ? '\x1b[32m' : current > max * 0.25 ? '\x1b[33m' : '\x1b[31m';
+                return `${color}[${'█'.repeat(filled)}${'░'.repeat(empty)}]\x1b[0m`;
             }
         }
 

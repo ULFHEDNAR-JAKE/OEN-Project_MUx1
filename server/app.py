@@ -12,6 +12,23 @@ import time
 from datetime import datetime, timedelta
 from email_service import send_verification_email
 
+# ---------------------------------------------------------------------------
+# Energy / action-point system
+# Each command has a fixed, flat cost so actions never "cost more" over time.
+# Energy regenerates at ENERGY_REGEN_PER_MIN points per minute up to MAX_ENERGY.
+# ---------------------------------------------------------------------------
+MAX_ENERGY: int = 100
+ENERGY_REGEN_PER_MIN: float = 10.0  # points restored per real-world minute
+
+# Flat, fixed cost for every server-side command.  Values do NOT change with
+# usage – the same action always costs the same amount.
+COMMAND_COSTS: dict[str, int] = {
+    'who':         1,
+    'server_info': 0,
+    'characters':  1,
+    'create':      5,
+}
+
 # Track connected sessions: {sid: {'user_id': id, 'username': str, 'connected_at': datetime}}
 connected_sessions = {}
 
@@ -39,6 +56,11 @@ class User(db.Model):
     verification_code_expires = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Action-point / energy fields – shared across all of the user's characters.
+    energy = db.Column(db.Integer, default=MAX_ENERGY, nullable=False)
+    max_energy = db.Column(db.Integer, default=MAX_ENERGY, nullable=False)
+    last_regen_at = db.Column(db.DateTime, default=datetime.utcnow)
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
@@ -49,6 +71,22 @@ class User(db.Model):
         self.verification_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
         self.verification_code_expires = datetime.utcnow() + timedelta(hours=24)
         return self.verification_code
+
+    def apply_energy_regen(self) -> None:
+        """Lazily add regenerated energy based on time elapsed since last regen.
+
+        Called just before every command so energy is always up-to-date without
+        needing a background timer.  The cost deducted afterwards is always the
+        same flat value – energy never costs *more* over time.
+        """
+        now = datetime.utcnow()
+        baseline = self.last_regen_at or now
+        elapsed_minutes = (now - baseline).total_seconds() / 60.0
+        regen = int(elapsed_minutes * ENERGY_REGEN_PER_MIN)
+        if regen > 0:
+            current = self.energy if self.energy is not None else 0
+            self.energy = min(self.max_energy, current + regen)
+            self.last_regen_at = now
 
 
 class Character(db.Model):
@@ -243,6 +281,21 @@ def server_status():
     return jsonify(get_server_status()), 200
 
 
+@app.route('/api/energy', methods=['GET'])
+def get_energy():
+    """Return the current energy level for the authenticated user."""
+    user, error_response = authenticate_request_user()
+    if error_response:
+        return error_response
+
+    user.apply_energy_regen()
+    db.session.commit()
+    return jsonify({
+        'energy': user.energy,
+        'max_energy': user.max_energy,
+    }), 200
+
+
 @app.route('/api/characters', methods=['GET'])
 def get_characters():
     """Get characters for the authenticated user"""
@@ -380,12 +433,40 @@ def handle_message(data):
 # Terminal command handler - processes text commands from terminal UI
 @socketio.on('command')
 def handle_command(data):
-    """Handle commands from terminal interface"""
+    """Handle commands from terminal interface.
+
+    Every command has a fixed, flat energy cost defined in COMMAND_COSTS.
+    The cost never increases between calls – the same action always costs the
+    same amount, so players are never penalised with escalating prices.
+    """
     cmd = data.get('cmd', '').lower()
     args = data.get('args', [])
-    
+
     response = {'output': [], 'error': None}
-    
+
+    # -----------------------------------------------------------------
+    # Resolve the logged-in user so we can apply energy costs.
+    # Commands that don't require login still work but skip cost tracking.
+    # -----------------------------------------------------------------
+    session = connected_sessions.get(request.sid, {})
+    user_id = session.get('user_id')
+    user = db.session.get(User, user_id) if user_id else None
+
+    if user:
+        user.apply_energy_regen()
+        cost = COMMAND_COSTS.get(cmd, 0)
+        if cost > 0 and user.energy < cost:
+            response['error'] = (
+                f'Not enough energy ({user.energy}/{user.max_energy}). '
+                f'This action costs {cost} AP. Energy regenerates at '
+                f'{int(ENERGY_REGEN_PER_MIN)} AP/min.'
+            )
+            db.session.commit()
+            emit('cmd_response', response)
+            return
+        user.energy = max(0, user.energy - cost)
+        db.session.commit()
+
     if cmd == 'who':
         # List connected users
         response['output'] = [
@@ -437,9 +518,6 @@ def handle_command(data):
     
     elif cmd == 'characters':
         # Get current user's characters
-        session = connected_sessions.get(request.sid, {})
-        user_id = session.get('user_id')
-        
         if not user_id:
             response['error'] = 'You must be logged in to view characters.'
         else:
@@ -466,9 +544,6 @@ def handle_command(data):
     
     elif cmd == 'create' and args:
         # Create a new character
-        session = connected_sessions.get(request.sid, {})
-        user_id = session.get('user_id')
-        
         if not user_id:
             response['error'] = 'You must be logged in to create a character.'
         else:
@@ -494,7 +569,13 @@ def handle_command(data):
                 ]
     else:
         response['error'] = f'Unknown server command: {cmd}'
-    
+
+    # Attach current energy level so the terminal can display it.
+    if user:
+        response['energy'] = user.energy
+        response['max_energy'] = user.max_energy
+        response['energy_cost'] = COMMAND_COSTS.get(cmd, 0)
+
     emit('cmd_response', response)
 
 if __name__ == '__main__':

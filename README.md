@@ -1,10 +1,41 @@
 # OEN-Project_MUx1 - Multi-User Experience (MUx) Server
 
+## Table of Contents
+
+- [What is this?](#what-is-this)
+- [Use Cases](#use-cases)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Usage](#usage)
+- [API Documentation](#api-documentation)
+- [Configuration](#configuration)
+- [Email Verification](#email-verification)
+- [Security Considerations](#security-considerations)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+---
+
 ## What is this?
 
 **OEN-Project_MUx1** is the foundation of a **MUD-style multi-user online experience server** (MUx = Multi-User eXperience). It provides the core infrastructure for running a persistent multi-user world where players can register accounts, create named characters, connect in real time, and interact through a browser-based terminal or a Python CLI client.
 
 Think of it as the back-end engine for a text-based online game or interactive shared world: users sign up, verify their email, create characters, log in, and communicate with other connected players — all through a classic MUD-inspired terminal interface powered by [xterm.js](https://xtermjs.org/) and [Socket.IO](https://socket.io/).
+
+## Use Cases
+
+| Use Case | How this project helps |
+|----------|----------------------|
+| **Text-based online game (MUD/MUX)** | Provides the complete back-end: accounts, characters, real-time multi-user sessions, and a browser-based terminal |
+| **Learning project** | Demonstrates Flask, Socket.IO, SQLAlchemy, Docker, and SSH tunnels in a single working codebase |
+| **Prototype / Starter kit** | Ready-made auth + character system you can extend with game logic, rooms, items, quests, etc. |
+| **Self-hosted chat / multi-user tool** | The Socket.IO layer and `who` / messaging commands can be repurposed for any shared real-time experience |
+| **API integration testing** | A full REST API with signup / login / verification that can serve as a mock auth backend for other projects |
+
+---
 
 ### Key capabilities
 

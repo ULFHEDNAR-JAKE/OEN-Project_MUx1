@@ -70,7 +70,7 @@ def send_verification_email(to_email, verification_code):
         print(f"Error sending email: {e}")
         # In development, still print the code
         print(f"\n{'='*50}")
-        print(f"VERIFICATION EMAIL (Fallback)")
+        print("VERIFICATION EMAIL (Fallback)")
         print(f"To: {to_email}")
         print(f"Verification Code: {verification_code}")
         print(f"{'='*50}\n")

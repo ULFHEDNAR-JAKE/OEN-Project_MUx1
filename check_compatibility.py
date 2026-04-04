@@ -84,23 +84,28 @@ def check_socketio_compatibility(file_path):
 def scan_python_files(root_dir):
     """Scan all Python files for compatibility issues"""
     all_issues = []
-    
+    this_script = os.path.abspath(__file__)
+
     for dirpath, dirnames, filenames in os.walk(root_dir):
         # Skip venv, __pycache__, .git
         dirnames[:] = [d for d in dirnames if d not in ['venv', '__pycache__', '.git', 'node_modules']]
-        
+
         for filename in filenames:
             if filename.endswith('.py'):
                 file_path = os.path.join(dirpath, filename)
-                
+
+                # Skip this script itself to avoid false-positive self-detection
+                if os.path.abspath(file_path) == this_script:
+                    continue
+
                 issues = []
                 issues.extend(check_flask_compatibility(file_path))
                 issues.extend(check_flask_cors_compatibility(file_path))
                 issues.extend(check_werkzeug_compatibility(file_path))
                 issues.extend(check_socketio_compatibility(file_path))
-                
+
                 all_issues.extend(issues)
-    
+
     return all_issues
 
 def main():

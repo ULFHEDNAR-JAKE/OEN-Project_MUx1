@@ -9,131 +9,228 @@
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --bg-deep:       #010c1a;
+            --bg-main:       #020f20;
+            --bg-panel:      #061828;
+            --bg-surface:    #0a2038;
+            --border-dim:    #0c2d50;
+            --border-normal: #1a5280;
+            --border-active: #2980b9;
+            --border-glow:   #3498db;
+            --text-dim:      #1a4a6e;
+            --text-muted:    #2e6da4;
+            --text-normal:   #5ba4cf;
+            --text-bright:   #85c1e9;
+            --text-vivid:    #00b4ff;
+            --text-electric: #00d8ff;
+            --text-neon:     #00f0ff;
+            --accent-teal:   #00e5cc;
+            --error:         #ff3b3b;
         }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
             height: 100%;
-            background: #0a0a0a;
+            background: var(--bg-deep);
             font-family: 'Courier New', monospace;
+            overflow: hidden;
         }
-
+        #rain-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0; opacity: 0.06; pointer-events: none;
+        }
         .app-container {
-            display: flex;
-            flex-direction: column;
+            display: flex; flex-direction: column;
             height: 100vh;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 10px;
+            max-width: 1400px; margin: 0 auto;
+            padding: 8px;
+            position: relative; z-index: 1;
         }
-
         .header {
-            color: #00ff00;
+            color: var(--text-vivid);
             text-align: center;
-            padding: 10px;
-            border-bottom: 1px solid #333;
-            margin-bottom: 10px;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border-dim);
+            margin-bottom: 6px;
         }
-
         .header h1 {
-            font-size: 14px;
-            letter-spacing: 2px;
+            font-size: 12px; letter-spacing: 3px;
+            color: var(--text-electric);
+            text-shadow: 0 0 10px rgba(0,220,255,0.35);
         }
-
         .header .ascii-art {
-            font-size: 10px;
-            color: #00aa00;
-            white-space: pre;
-            line-height: 1.1;
+            font-size: 9px;
+            color: var(--text-vivid);
+            text-shadow: 0 0 8px rgba(0,180,255,0.3);
+            white-space: pre; line-height: 1.1; display: block;
         }
-
         .status-bar {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 10px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #888;
-            font-size: 12px;
-            margin-bottom: 10px;
+            display: flex; justify-content: space-between;
+            padding: 4px 10px;
+            background: var(--bg-panel); border: 1px solid var(--border-dim);
+            color: var(--text-dim); font-size: 11px;
+            margin-bottom: 6px; letter-spacing: 1px;
         }
-
-        .status-bar .connected {
-            color: #00ff00;
+        .status-bar .connected    { color: var(--accent-teal); text-shadow: 0 0 6px rgba(0,229,204,0.4); }
+        .status-bar .disconnected { color: var(--error); }
+        .status-bar .user         { color: var(--text-electric); }
+        .main-layout {
+            flex: 1; display: flex; gap: 7px;
+            overflow: hidden; min-height: 0;
         }
-
-        .status-bar .disconnected {
-            color: #ff4444;
+        .terminal-wrapper {
+            flex: 1; display: flex; flex-direction: column;
+            gap: 6px; min-width: 0;
         }
-
-        .status-bar .user {
-            color: #00aaff;
-        }
-
         .terminal-container {
             flex: 1;
-            border: 1px solid #333;
-            border-radius: 4px;
-            overflow: hidden;
-            background: #0d0d0d;
+            border: 1px solid var(--border-dim); border-radius: 2px;
+            overflow: hidden; background: var(--bg-deep);
+            box-shadow: inset 0 0 24px rgba(0,40,80,0.6);
+            min-height: 0;
         }
-
-        #terminal {
-            height: 100%;
+        #terminal { height: 100%; }
+        .say-bar {
+            display: flex; align-items: center; gap: 6px;
+            background: var(--bg-panel); border: 1px solid var(--border-dim);
+            padding: 5px 10px; border-radius: 2px; flex-shrink: 0;
         }
-
+        .say-prompt { color: var(--text-muted); font-size: 11px; letter-spacing: 1px; white-space: nowrap; }
+        .say-bar input {
+            flex: 1; background: var(--bg-main);
+            border: 1px solid var(--border-dim);
+            color: var(--text-bright);
+            font-family: 'Courier New', monospace; font-size: 12px;
+            padding: 4px 8px; outline: none; border-radius: 2px;
+        }
+        .say-bar input:focus { border-color: var(--border-active); box-shadow: 0 0 6px rgba(0,140,255,0.15); }
+        .say-bar input::placeholder { color: var(--text-dim); }
+        .say-bar button {
+            background: transparent; border: 1px solid var(--border-normal);
+            color: var(--text-vivid);
+            font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 1px;
+            padding: 4px 14px; cursor: pointer; transition: all .15s; border-radius: 2px; white-space: nowrap;
+        }
+        .say-bar button:hover {
+            background: rgba(0,140,255,0.15); border-color: var(--border-glow);
+            color: var(--text-electric); text-shadow: 0 0 6px rgba(0,220,255,0.4);
+        }
+        .quick-panel {
+            width: 176px; min-width: 176px;
+            background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 2px;
+            overflow-y: auto; overflow-x: hidden;
+            display: flex; flex-direction: column;
+        }
+        .quick-panel::-webkit-scrollbar { width: 3px; }
+        .quick-panel::-webkit-scrollbar-track { background: var(--bg-deep); }
+        .quick-panel::-webkit-scrollbar-thumb { background: var(--border-normal); }
+        .panel-title {
+            color: var(--text-electric); font-size: 10px; letter-spacing: 2px;
+            text-align: center; padding: 7px 6px;
+            border-bottom: 1px solid var(--border-dim);
+            background: var(--bg-surface);
+            text-shadow: 0 0 8px rgba(0,220,255,0.3);
+            flex-shrink: 0;
+        }
+        .cmd-group { padding: 4px 0; border-bottom: 1px solid var(--border-dim); flex-shrink: 0; }
+        .group-label {
+            color: var(--text-dim); font-size: 9px; letter-spacing: 1px;
+            text-align: center; padding: 3px 4px 2px; text-transform: uppercase;
+        }
+        .qbtn {
+            display: block; width: 100%;
+            background: transparent; border: none;
+            border-bottom: 1px solid rgba(12,45,80,0.5);
+            color: var(--text-normal);
+            font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 0.5px;
+            padding: 6px 10px; text-align: left; cursor: pointer; transition: all .15s;
+        }
+        .qbtn:hover {
+            background: rgba(0,100,200,0.18); color: var(--text-electric);
+            text-shadow: 0 0 6px rgba(0,220,255,0.3); padding-left: 14px;
+        }
+        .qbtn:active { background: rgba(0,100,200,0.28); }
+        .qbtn.warn   { color: var(--error); }
+        .qbtn.warn:hover { color: #ff6666; text-shadow: 0 0 6px rgba(255,60,60,0.3); }
         .footer {
-            padding: 5px 10px;
-            color: #555;
-            font-size: 11px;
-            text-align: center;
-            border-top: 1px solid #333;
-            margin-top: 10px;
+            padding: 4px 10px; color: var(--text-dim); font-size: 10px;
+            text-align: center; border-top: 1px solid var(--border-dim);
+            margin-top: 6px; letter-spacing: 0.5px;
         }
-
-        .footer a {
-            color: #666;
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            color: #00ff00;
-        }
+        .footer a { color: var(--text-muted); text-decoration: none; }
+        .footer a:hover { color: var(--text-electric); text-shadow: 0 0 6px rgba(0,220,255,0.3); }
     </style>
 </head>
 <body>
+    <canvas id="rain-canvas"></canvas>
     <div class="app-container">
         <div class="header">
             <pre class="ascii-art">
-  ___  _____ _   _   _   _      _                      _    
- / _ \| ____| \ | | | \ | | ___| |___      _____  _ __| | __
+  ___  ___ _   _   _   _      _                      _    
+ / _ \| ___| \ | | | \ | | ___| |___      _____  _ __| | __
 | | | |  _| |  \| | |  \| |/ _ \ __\ \ /\ / / _ \| '__| |/ /
 | |_| | |___| |\  | | |\  |  __/ |_ \ V  V / (_) | |  |   < 
- \___/|_____|_| \_| |_| \_|\___|\__| \_/\_/ \___/|_|  |_|\_\
-            </pre>
-            <h1>[ AUTHENTICATION TERMINAL v1.0 ]</h1>
+ \___/|_____|_| \_| |_| \_|\___|\__| \_/\_/ \___/|_|  |_|\_\</pre>
+            <h1>[ OEN AUTHENTICATION TERMINAL &nbsp; v2.0 ]</h1>
         </div>
-
         <div class="status-bar">
-            <span>Connection: <span id="conn-status" class="disconnected">OFFLINE</span></span>
-            <span>User: <span id="user-status" class="user">guest</span></span>
-            <span>Session: <span id="session-time">00:00:00</span></span>
+            <span>NODE: <span id="conn-status" class="disconnected">OFFLINE</span></span>
+            <span>USER: <span id="user-status" class="user">guest</span></span>
+            <span>SESSION: <span id="session-time">00:00:00</span></span>
         </div>
-
-        <div class="terminal-container">
-            <div id="terminal"></div>
+        <div class="main-layout">
+            <div class="terminal-wrapper">
+                <div class="terminal-container">
+                    <div id="terminal"></div>
+                </div>
+                <div class="say-bar">
+                    <span class="say-prompt">SAY&gt;</span>
+                    <input type="text" id="say-input"
+                           placeholder="Type a message to broadcast&hellip;"
+                           autocomplete="off">
+                    <button type="button" onclick="quickSay()">SEND</button>
+                </div>
+            </div>
+            <div class="quick-panel">
+                <div class="panel-title">[ QUICK ACCESS ]</div>
+                <div class="cmd-group">
+                    <div class="group-label">&mdash; Account &mdash;</div>
+                    <button class="qbtn" onclick="quickCmd('login')">&#9658; LOGIN</button>
+                    <button class="qbtn" onclick="quickCmd('signup')">&#9658; SIGN UP</button>
+                    <button class="qbtn" onclick="quickCmd('verify')">&#9658; VERIFY EMAIL</button>
+                    <button class="qbtn" onclick="quickCmd('resend')">&#9658; RESEND CODE</button>
+                    <button class="qbtn" onclick="quickCmd('logout')">&#9658; LOGOUT</button>
+                </div>
+                <div class="cmd-group">
+                    <div class="group-label">&mdash; Network &mdash;</div>
+                    <button class="qbtn" onclick="quickCmd('status')">&#9658; MY STATUS</button>
+                    <button class="qbtn" onclick="quickCmd('who')">&#9658; WHO ONLINE</button>
+                    <button class="qbtn" onclick="quickCmd('whoami')">&#9658; WHOAMI</button>
+                    <button class="qbtn" onclick="quickCmd('server')">&#9658; SERVER INFO</button>
+                </div>
+                <div class="cmd-group">
+                    <div class="group-label">&mdash; Roster &mdash;</div>
+                    <button class="qbtn" onclick="quickCmd('characters')">&#9658; VIEW ROSTER</button>
+                    <button class="qbtn" onclick="injectCmd('create ')">&#9658; NEW CHARACTER</button>
+                </div>
+                <div class="cmd-group">
+                    <div class="group-label">&mdash; System &mdash;</div>
+                    <button class="qbtn" onclick="quickCmd('ping')">&#9658; PING SERVER</button>
+                    <button class="qbtn" onclick="quickCmd('help')">&#9658; HELP</button>
+                    <button class="qbtn" onclick="quickCmd('version')">&#9658; VERSION</button>
+                    <button class="qbtn" onclick="quickCmd('clear')">&#9658; CLEAR SCREEN</button>
+                    <button class="qbtn warn" onclick="quickCmd('quit')">&#9658; DISCONNECT</button>
+                </div>
+            </div>
         </div>
-
         <div class="footer">
-            Type <strong>help</strong> for available commands | 
-            <a href="/">Switch to GUI</a>
+            Click a command in the panel &nbsp;|&nbsp; or type directly in the terminal &nbsp;|&nbsp;
+            <a href="/">Switch to GUI Portal</a>
         </div>
     </div>
-
     <script>
+
         // ============================================================
         // OEN Terminal Client - MUD-Style Interface
         // ============================================================
@@ -173,26 +270,26 @@
                     fontFamily: '"Courier New", monospace',
                     fontSize: 14,
                     theme: {
-                        background: '#0d0d0d',
-                        foreground: '#00ff00',
-                        cursor: '#00ff00',
-                        cursorAccent: '#0d0d0d',
-                        selection: 'rgba(0, 255, 0, 0.3)',
-                        black: '#0d0d0d',
+                        background: '#010c1a',
+                        foreground: '#7ecfff',
+                        cursor: '#00e5ff',
+                        cursorAccent: '#010c1a',
+                        selection: 'rgba(0, 180, 255, 0.25)',
+                        black: '#010c1a',
                         red: '#ff4444',
-                        green: '#00ff00',
-                        yellow: '#ffff00',
-                        blue: '#00aaff',
-                        magenta: '#ff00ff',
-                        cyan: '#00ffff',
-                        white: '#ffffff',
-                        brightBlack: '#666666',
+                        green: '#00e5cc',
+                        yellow: '#00b4ff',
+                        blue: '#4db8ff',
+                        magenta: '#7ecfff',
+                        cyan: '#00e5ff',
+                        white: '#b3e5ff',
+                        brightBlack: '#1a3a5c',
                         brightRed: '#ff6666',
-                        brightGreen: '#66ff66',
-                        brightYellow: '#ffff66',
-                        brightBlue: '#66aaff',
-                        brightMagenta: '#ff66ff',
-                        brightCyan: '#66ffff',
+                        brightGreen: '#33ffd6',
+                        brightYellow: '#33ccff',
+                        brightBlue: '#66c8ff',
+                        brightMagenta: '#99d9ff',
+                        brightCyan: '#66f0ff',
                         brightWhite: '#ffffff'
                     }
                 });
@@ -265,13 +362,13 @@
                     // Show server status
                     if (data.server_status) {
                         const status = data.server_status;
-                        this.writeLine('\x1b[33m┌─────────────────────────────────────┐\x1b[0m');
-                        this.writeLine('\x1b[33m│\x1b[0m       \x1b[1mSERVER STATUS\x1b[0m                \x1b[33m│\x1b[0m');
-                        this.writeLine('\x1b[33m├─────────────────────────────────────┤\x1b[0m');
-                        this.writeLine(`\x1b[33m│\x1b[0m  Status:  \x1b[32m${status.status.toUpperCase().padEnd(23)}\x1b[0m\x1b[33m│\x1b[0m`);
-                        this.writeLine(`\x1b[33m│\x1b[0m  Uptime:  ${status.uptime.padEnd(23)}\x1b[33m│\x1b[0m`);
-                        this.writeLine(`\x1b[33m│\x1b[0m  Online:  ${String(status.connected_users + ' user(s)').padEnd(23)}\x1b[33m│\x1b[0m`);
-                        this.writeLine('\x1b[33m└─────────────────────────────────────┘\x1b[0m');
+                        this.writeLine('\x1b[94m┌─────────────────────────────────────┐\x1b[0m');
+                        this.writeLine('\x1b[94m│\x1b[0m       \x1b[1mSERVER STATUS\x1b[0m                \x1b[94m│\x1b[0m');
+                        this.writeLine('\x1b[94m├─────────────────────────────────────┤\x1b[0m');
+                        this.writeLine(`\x1b[94m│\x1b[0m  Status:  \x1b[32m${status.status.toUpperCase().padEnd(23)}\x1b[0m\x1b[94m│\x1b[0m`);
+                        this.writeLine(`\x1b[94m│\x1b[0m  Uptime:  ${status.uptime.padEnd(23)}\x1b[94m│\x1b[0m`);
+                        this.writeLine(`\x1b[94m│\x1b[0m  Online:  ${String(status.connected_users + ' user(s)').padEnd(23)}\x1b[94m│\x1b[0m`);
+                        this.writeLine('\x1b[94m└─────────────────────────────────────┘\x1b[0m');
                         this.writeLine('');
                     }
                     
@@ -500,35 +597,35 @@
             showGeneralHelp() {
                 const help = [
                     '',
-                    '\x1b[33m╔══════════════════════════════════════════════════════════╗\x1b[0m',
-                    '\x1b[33m║\x1b[0m              \x1b[1mOEN TERMINAL COMMANDS\x1b[0m                      \x1b[33m║\x1b[0m',
-                    '\x1b[33m╠══════════════════════════════════════════════════════════╣\x1b[0m',
-                    '\x1b[33m║\x1b[0m  \x1b[32mAuthentication:\x1b[0m                                        \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    login [username]    - Log in to your account          \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    signup              - Create a new account            \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    verify <code>       - Verify your email               \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    resend              - Resend verification code        \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    logout              - Log out                         \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m  \x1b[32mCharacters:\x1b[0m                                            \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    characters          - List your characters            \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    create <name>       - Create a new character          \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m  \x1b[32mCommunication:\x1b[0m                                         \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    say <message>       - Send a message                  \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    who                 - List connected users            \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    whoami              - Display current user            \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m  \x1b[32mUtilities:\x1b[0m                                             \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    status              - Show connection status          \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    server              - Show server information         \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    ping                - Test server connection          \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    clear               - Clear the terminal              \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    version             - Show version info               \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m    quit                - Disconnect                      \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m                                                          \x1b[33m║\x1b[0m',
-                    '\x1b[33m║\x1b[0m  Type \x1b[36mhelp <command>\x1b[0m for detailed usage.                \x1b[33m║\x1b[0m',
-                    '\x1b[33m╚══════════════════════════════════════════════════════════╝\x1b[0m',
+                    '\x1b[94m╔══════════════════════════════════════════════════════════╗\x1b[0m',
+                    '\x1b[94m║\x1b[0m              \x1b[1mOEN TERMINAL COMMANDS\x1b[0m                      \x1b[94m║\x1b[0m',
+                    '\x1b[94m╠══════════════════════════════════════════════════════════╣\x1b[0m',
+                    '\x1b[94m║\x1b[0m  \x1b[32mAuthentication:\x1b[0m                                        \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    login [username]    - Log in to your account          \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    signup              - Create a new account            \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    verify <code>       - Verify your email               \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    resend              - Resend verification code        \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    logout              - Log out                         \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m                                                          \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m  \x1b[32mCharacters:\x1b[0m                                            \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    characters          - List your characters            \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    create <name>       - Create a new character          \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m                                                          \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m  \x1b[32mCommunication:\x1b[0m                                         \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    say <message>       - Send a message                  \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    who                 - List connected users            \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    whoami              - Display current user            \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m                                                          \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m  \x1b[32mUtilities:\x1b[0m                                             \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    status              - Show connection status          \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    server              - Show server information         \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    ping                - Test server connection          \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    clear               - Clear the terminal              \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    version             - Show version info               \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m    quit                - Disconnect                      \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m                                                          \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m  Type \x1b[36mhelp <command>\x1b[0m for detailed usage.                \x1b[94m║\x1b[0m',
+                    '\x1b[94m╚══════════════════════════════════════════════════════════╝\x1b[0m',
                     ''
                 ];
                 help.forEach(line => this.writeLine(line));
@@ -614,13 +711,13 @@
                         // Show server status
                         if (data.server_status) {
                             const status = data.server_status;
-                            this.writeLine('\x1b[33m┌─────────────────────────────────────┐\x1b[0m');
-                            this.writeLine('\x1b[33m│\x1b[0m       \x1b[1mSERVER STATUS\x1b[0m                \x1b[33m│\x1b[0m');
-                            this.writeLine('\x1b[33m├─────────────────────────────────────┤\x1b[0m');
-                            this.writeLine(`\x1b[33m│\x1b[0m  Status:  \x1b[32m${status.status.toUpperCase().padEnd(23)}\x1b[0m\x1b[33m│\x1b[0m`);
-                            this.writeLine(`\x1b[33m│\x1b[0m  Uptime:  ${status.uptime.padEnd(23)}\x1b[33m│\x1b[0m`);
-                            this.writeLine(`\x1b[33m│\x1b[0m  Online:  ${String(status.connected_users + ' user(s)').padEnd(23)}\x1b[33m│\x1b[0m`);
-                            this.writeLine('\x1b[33m└─────────────────────────────────────┘\x1b[0m');
+                            this.writeLine('\x1b[94m┌─────────────────────────────────────┐\x1b[0m');
+                            this.writeLine('\x1b[94m│\x1b[0m       \x1b[1mSERVER STATUS\x1b[0m                \x1b[94m│\x1b[0m');
+                            this.writeLine('\x1b[94m├─────────────────────────────────────┤\x1b[0m');
+                            this.writeLine(`\x1b[94m│\x1b[0m  Status:  \x1b[32m${status.status.toUpperCase().padEnd(23)}\x1b[0m\x1b[94m│\x1b[0m`);
+                            this.writeLine(`\x1b[94m│\x1b[0m  Uptime:  ${status.uptime.padEnd(23)}\x1b[94m│\x1b[0m`);
+                            this.writeLine(`\x1b[94m│\x1b[0m  Online:  ${String(status.connected_users + ' user(s)').padEnd(23)}\x1b[94m│\x1b[0m`);
+                            this.writeLine('\x1b[94m└─────────────────────────────────────┘\x1b[0m');
                             this.writeLine('');
                         }
                         
@@ -776,13 +873,13 @@
                 const uptime = this.getSessionTime();
 
                 this.writeLine('');
-                this.writeLine('\x1b[33m┌─────────────────────────────┐\x1b[0m');
-                this.writeLine('\x1b[33m│\x1b[0m       \x1b[1mSTATUS\x1b[0m               \x1b[33m│\x1b[0m');
-                this.writeLine('\x1b[33m├─────────────────────────────┤\x1b[0m');
-                this.writeLine(`\x1b[33m│\x1b[0m  Connection: ${connected ? '\x1b[32mONLINE\x1b[0m ' : '\x1b[31mOFFLINE\x1b[0m'}       \x1b[33m│\x1b[0m`);
-                this.writeLine(`\x1b[33m│\x1b[0m  User:       \x1b[36m${user.padEnd(14)}\x1b[0m \x1b[33m│\x1b[0m`);
-                this.writeLine(`\x1b[33m│\x1b[0m  Session:    ${uptime.padEnd(14)} \x1b[33m│\x1b[0m`);
-                this.writeLine('\x1b[33m└─────────────────────────────┘\x1b[0m');
+                this.writeLine('\x1b[94m┌─────────────────────────────┐\x1b[0m');
+                this.writeLine('\x1b[94m│\x1b[0m       \x1b[1mSTATUS\x1b[0m               \x1b[94m│\x1b[0m');
+                this.writeLine('\x1b[94m├─────────────────────────────┤\x1b[0m');
+                this.writeLine(`\x1b[94m│\x1b[0m  Connection: ${connected ? '\x1b[32mONLINE\x1b[0m ' : '\x1b[31mOFFLINE\x1b[0m'}       \x1b[94m│\x1b[0m`);
+                this.writeLine(`\x1b[94m│\x1b[0m  User:       \x1b[36m${user.padEnd(14)}\x1b[0m \x1b[94m│\x1b[0m`);
+                this.writeLine(`\x1b[94m│\x1b[0m  Session:    ${uptime.padEnd(14)} \x1b[94m│\x1b[0m`);
+                this.writeLine('\x1b[94m└─────────────────────────────┘\x1b[0m');
                 this.writeLine('');
                 this.prompt();
             }
@@ -903,7 +1000,7 @@
                 if (this.inputMode === 'normal') {
                     const userPrefix = this.currentUser ? 
                         `\x1b[36m${this.currentUser.username}\x1b[0m` : 
-                        '\x1b[33mguest\x1b[0m';
+                        '\x1b[34mguest\x1b[0m';
                     this.term.write(`[${userPrefix}]${this.promptStr}`);
                 }
             }
@@ -935,18 +1032,19 @@
             showWelcome() {
                 const welcome = [
                     '',
-                    '\x1b[32m════════════════════════════════════════════════════════════\x1b[0m',
+                    '\x1b[94m╔══════════════════════════════════════════════════════════╗\x1b[0m',
+                    '\x1b[94m║\x1b[0m     \x1b[1m\x1b[96mOEN NETWORK  —  AUTHENTICATION TERMINAL\x1b[0m        \x1b[94m║\x1b[0m',
+                    '\x1b[94m║\x1b[0m     \x1b[34mNODE: OEN-MAIN-1  //  PROTOCOL: SOCKET.IO\x1b[0m      \x1b[94m║\x1b[0m',
+                    '\x1b[94m╚══════════════════════════════════════════════════════════╝\x1b[0m',
                     '',
-                    '  Welcome to the \x1b[1mOEN Authentication Network\x1b[0m',
+                    '  Welcome. This terminal provides encrypted access to the',
+                    '  \x1b[1m\x1b[96mOEN Network\x1b[0m. Use the \x1b[96mQuick Access\x1b[0m panel on the right,',
+                    '  or type commands directly below.',
                     '',
-                    '  This terminal provides secure access to authentication',
-                    '  services. Type \x1b[33mhelp\x1b[0m for available commands.',
+                    '  \x1b[36m►\x1b[0m  New users:   click \x1b[96mSIGN UP\x1b[0m or type \x1b[96msignup\x1b[0m',
+                    '  \x1b[36m►\x1b[0m  Members:     click \x1b[96mLOGIN\x1b[0m   or type \x1b[96mlogin\x1b[0m',
+                    '  \x1b[36m►\x1b[0m  Need help?   click \x1b[96mHELP\x1b[0m    or type \x1b[96mhelp\x1b[0m',
                     '',
-                    '  New users: Type \x1b[36msignup\x1b[0m to create an account.',
-                    '  Existing users: Type \x1b[36mlogin\x1b[0m to authenticate.',
-                    '',
-                    '\x1b[32m════════════════════════════════════════════════════════════\x1b[0m',
-                    ''
                 ];
                 welcome.forEach(line => this.writeLine(line));
             }
@@ -981,6 +1079,88 @@
         window.addEventListener('load', () => {
             window.oenTerminal = new OENTerminal();
         });
+
+        // ── Quick Access Panel functions ────────────────────────────────────
+        function quickCmd(cmd, args) {
+            args = args || [];
+            var t = window.oenTerminal;
+            if (!t) return;
+            if (t.inputMode !== 'normal') return;
+            t.term.write('\r\n');
+            t.writeLine('\x1b[2m[\u25ba ' + cmd + (args.length ? ' ' + args.join(' ') : '') + ']\x1b[0m');
+            t.commandHistory.push(cmd);
+            t.historyIndex = t.commandHistory.length;
+            t.currentLine = '';
+            t.executeCommand(cmd, args);
+            t.term.focus();
+        }
+
+        function injectCmd(text) {
+            var t = window.oenTerminal;
+            if (!t) return;
+            if (t.inputMode !== 'normal') return;
+            t.term.write('\r\n');
+            t.prompt();
+            t.currentLine = text.replace(/\s+$/, '');
+            t.term.write(text);
+            t.term.focus();
+        }
+
+        function quickSay() {
+            var input = document.getElementById('say-input');
+            if (!input) return;
+            var msg = input.value.trim();
+            if (!msg) return;
+            var t = window.oenTerminal;
+            if (!t) return;
+            if (t.inputMode !== 'normal') return;
+            t.term.write('\r\n');
+            t.writeLine('\x1b[2m[\u25ba say]\x1b[0m');
+            t.executeCommand('say', msg.split(' '));
+            input.value = '';
+            input.focus();
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var si = document.getElementById('say-input');
+            if (si) si.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); quickSay(); }
+            });
+        });
+
+
+        // Matrix Rain Background
+        (function () {
+            var canvas = document.getElementById('rain-canvas');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+            resize();
+            window.addEventListener('resize', resize);
+            var chars = '01\u30A2\u30A4\u30A6\u30A8\u30AA\u30AB\u30AD\u30AF\u30B1\u30B3\u30B5\u30B7\u30B9\u30BB\u30BD\u30BF\u30C1\u30C4\u30C6\u30C8\u30CA\u30CB\u30CC\u30CD\u30CE';
+            var fs = 13, cols = [];
+            function reset() {
+                cols = [];
+                var n = Math.floor(canvas.width / fs);
+                for (var i = 0; i < n; i++) cols.push((Math.random() * -canvas.height / fs) | 0);
+            }
+            reset();
+            window.addEventListener('resize', reset);
+            var palette = ['#00b4ff','#00d8ff','#00e5cc','#4db8ff','#0077cc','#0099ee'];
+            function draw() {
+                ctx.fillStyle = 'rgba(1,12,26,0.06)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.font = fs + 'px monospace';
+                for (var i = 0; i < cols.length; i++) {
+                    ctx.fillStyle = palette[i % palette.length];
+                    var ch = chars[(Math.random() * chars.length) | 0];
+                    ctx.fillText(ch, i * fs, cols[i] * fs);
+                    if (cols[i] * fs > canvas.height && Math.random() > 0.975) cols[i] = 0;
+                    cols[i]++;
+                }
+            }
+            setInterval(draw, 55);
+        })();
     </script>
 </body>
 </html>

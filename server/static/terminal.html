@@ -981,7 +981,7 @@
 
             cmdVersion() {
                 this.writeLine('');
-                this.writeLine('\x1b[32mOEN Terminal\x1b[0m v1.0.0');
+                this.writeLine('\x1b[96mOEN Terminal\x1b[0m v2.0.0');
                 this.writeLine('Authentication System');
                 this.writeLine('(c) 2024 OEN Network');
                 this.writeLine('');
@@ -1000,7 +1000,7 @@
                 if (this.inputMode === 'normal') {
                     const userPrefix = this.currentUser ? 
                         `\x1b[36m${this.currentUser.username}\x1b[0m` : 
-                        '\x1b[34mguest\x1b[0m';
+                        '\x1b[33mguest\x1b[0m';
                     this.term.write(`[${userPrefix}]${this.promptStr}`);
                 }
             }

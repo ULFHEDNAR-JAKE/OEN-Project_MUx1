@@ -12,7 +12,6 @@ All Python dependencies have been updated to their latest stable versions (Novem
 | Flask-SocketIO | 5.3.5 | **5.5.1** |
 | Flask-CORS | 4.0.0 | **6.0.1** ⚠️ Major version |
 | python-socketio | 5.10.0 | **5.14.3** |
-| Werkzeug | 3.0.1 | **3.1.3** |
 | requests | 2.31.0 | **2.32.5** |
 | python-engineio | 4.8.0 | **4.12.3** |
 | Flask-SQLAlchemy | 3.1.1 | 3.1.1 (no change) |

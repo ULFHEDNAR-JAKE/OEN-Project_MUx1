@@ -2,10 +2,10 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 from threading import Thread, Lock
+import hashlib
 import secrets
 import os
 import time
@@ -28,6 +28,30 @@ CORS(app)
 db = SQLAlchemy(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+_PBKDF2_ITERATIONS = 600000
+
+def _hash_password(password: str) -> str:
+    """Hash a password using PBKDF2-SHA256 with a random salt."""
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, _PBKDF2_ITERATIONS)
+    return f'pbkdf2:sha256:{_PBKDF2_ITERATIONS}${salt.hex()}${dk.hex()}'
+
+def _verify_password(password_hash: str, password: str) -> bool:
+    """Verify a password against a stored PBKDF2-SHA256 hash."""
+    try:
+        if password_hash.count('$') != 2:
+            return False
+        prefix, salt_hex, stored_hex = password_hash.split('$')
+        _, algo, iterations_str = prefix.split(':')
+        if algo != 'sha256':
+            return False
+        iterations = int(iterations_str)
+        salt = bytes.fromhex(salt_hex)
+        dk = hashlib.pbkdf2_hmac(algo, password.encode('utf-8'), salt, iterations)
+        return secrets.compare_digest(dk.hex(), stored_hex)
+    except (ValueError, AttributeError):
+        return False
+
 # Database Models
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -40,10 +64,10 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = _hash_password(password)
 
     def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+        return _verify_password(self.password_hash, password)
 
     def generate_verification_code(self):
         self.verification_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])

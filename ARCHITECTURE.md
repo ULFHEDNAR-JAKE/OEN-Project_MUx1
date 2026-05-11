@@ -71,7 +71,7 @@ OEN-Project_MUx1 is a **MUD-style multi-user experience server** (MUx = Multi-Us
 - CORS enabled for cross-origin requests
 - RESTful API endpoints
 - Real-time bidirectional communication via Socket.IO
-- Password hashing with Werkzeug
+- Password hashing with PBKDF2-SHA256 (Python standard library)
 - SQLite database (configurable to PostgreSQL)
 
 **API Endpoints:**
@@ -188,7 +188,7 @@ Client → emit('command', {cmd: 'who', args: []})
 
 ## Security Considerations
 
-- Passwords hashed with Werkzeug's PBKDF2-SHA256
+- Passwords hashed with PBKDF2-SHA256 (Python standard library)
 - 6-digit verification codes generated via `secrets.randbelow` (cryptographically random)
 - Codes expire after 24 hours and are cleared after use
 - CORS currently wide-open (`*`) — restrict to specific origins in production
@@ -205,7 +205,7 @@ Client → emit('command', {cmd: 'who', args: []})
 | id | Integer | Primary Key | Unique user identifier |
 | username | String(80) | Unique, Not Null | Login name |
 | email | String(120) | Unique, Not Null | Email address |
-| password_hash | String(255) | Not Null | Werkzeug password hash |
+| password_hash | String(255) | Not Null | PBKDF2-SHA256 password hash |
 | is_verified | Boolean | Default: False | Email verification status |
 | verification_code | String(6) | Nullable | Active verification code |
 | verification_code_expires | DateTime | Nullable | Code expiration |

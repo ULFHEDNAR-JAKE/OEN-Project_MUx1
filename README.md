@@ -31,7 +31,7 @@ Think of it as the back-end engine for a text-based online game or interactive s
 - **SSH Tunnel Support**: Secure remote access through SSH tunnels
 - **Docker Integration**: Seamless deployment with Docker Compose
 - **Database**: SQLite (dev) / PostgreSQL (prod) via SQLAlchemy ORM
-- **Security**: Werkzeug password hashing, cryptographically random verification codes
+- **Security**: PBKDF2-SHA256 password hashing, cryptographically random verification codes
 
 ## Architecture
 
@@ -406,7 +406,7 @@ export FROM_EMAIL=your-email@gmail.com
 
 ## Security Considerations
 
-- **Passwords**: Hashed using Werkzeug's `generate_password_hash`
+- **Passwords**: Hashed using PBKDF2-SHA256 (Python standard library)
 - **Verification Codes**: 6-digit codes valid for 24 hours
 - **Environment Variables**: Store sensitive data in `.env` file (not committed)
 - **SSH Keys**: Use key-based authentication for SSH tunnels

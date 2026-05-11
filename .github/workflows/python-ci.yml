@@ -54,7 +54,6 @@ jobs:
         python -c "import flask_sqlalchemy; print('Flask-SQLAlchemy imported successfully')"
         python -c "import flask_cors; print('Flask-CORS imported successfully')"
         python -c "import socketio; print('python-socketio imported successfully')"
-        python -c "import importlib.metadata; import werkzeug; print(f'Werkzeug {importlib.metadata.version(\"werkzeug\")}')"
         python -c "import requests; print(f'requests {requests.__version__}')"
         python -c "import engineio; print('python-engineio imported successfully')"
     

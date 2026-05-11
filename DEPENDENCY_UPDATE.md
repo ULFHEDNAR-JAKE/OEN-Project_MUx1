@@ -15,7 +15,6 @@ The following dependencies were updated to their latest stable versions:
 | Flask-SQLAlchemy | 3.1.1 | 3.1.1 | No change (already latest) |
 | Flask-CORS | 4.0.0 | 6.0.1 | Major version update - review CORS configuration |
 | python-socketio | 5.10.0 | 5.14.3 | Patch updates with bug fixes |
-| Werkzeug | 3.0.1 | 3.1.3 | Minor version update with security fixes |
 | requests | 2.31.0 | 2.32.5 | Patch updates with bug fixes |
 | python-engineio | 4.8.0 | 4.12.3 | Patch updates with bug fixes |
 
@@ -69,12 +68,6 @@ The Flask-CORS package was updated from 4.0.0 to 6.0.1, which is a major version
 - Use `importlib.metadata.version("flask")` for version detection
 - All existing code patterns remain compatible
 
-### Werkzeug 3.1.3
-
-- Includes security improvements and bug fixes
-- All existing password hashing functions remain compatible
-- No breaking changes affecting this codebase
-
 ## Breaking Changes
 
 **None identified** - All updates are backward compatible with the current codebase.
@@ -116,7 +109,6 @@ pip install -r requirements.txt --force-reinstall
 
 - Flask Changelog: https://flask.palletsprojects.com/en/latest/changes/
 - Flask-SocketIO Changelog: https://github.com/miguelgrinberg/Flask-SocketIO/blob/main/CHANGES.md
-- Werkzeug Changelog: https://werkzeug.palletsprojects.com/en/latest/changes/
 - Flask-CORS: https://github.com/corydolphin/flask-cors
 
 ## Conclusion

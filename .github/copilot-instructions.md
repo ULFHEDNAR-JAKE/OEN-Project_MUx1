@@ -7,7 +7,7 @@ OEN-Project_MUx1 is a comprehensive client-server authentication system with ema
 **Tech Stack:**
 - **Backend**: Flask 3.1.2, Flask-SocketIO 5.5.1, SQLAlchemy 3.1.1
 - **Database**: SQLite (dev) / PostgreSQL (prod)
-- **Authentication**: Werkzeug password hashing, email verification codes
+- **Authentication**: PBKDF2-SHA256 password hashing, email verification codes
 - **Real-time**: Socket.IO with bidirectional messaging
 - **Deployment**: Docker Compose, native Python 3.11+
 
@@ -42,7 +42,7 @@ When SMTP credentials are not configured, verification codes print to the **serv
 ### Database Behavior
 - **No migrations configured** - schema changes require deleting `auth.db`
 - Database file created in working directory where server runs (typically `server/`)
-- Password hashing: `user.set_password()` / `user.check_password()` via Werkzeug
+- Password hashing: `user.set_password()` / `user.check_password()` via native PBKDF2-SHA256
 
 ## Build, Run, and Test Commands
 
@@ -172,7 +172,7 @@ class User(db.Model):
 
 ### Database
 - Models defined in `server/app.py` using SQLAlchemy ORM
-- Password hashing via Werkzeug's `generate_password_hash`/`check_password_hash`
+- Password hashing via `_hash_password()`/`_verify_password()` using `hashlib.pbkdf2_hmac` (PBKDF2-SHA256)
 - Verification codes: 6 digits, 24-hour expiry, generated with `secrets.randbelow(10)`
 - Database file location: `server/auth.db` (working directory where server runs)
 
@@ -187,7 +187,7 @@ class User(db.Model):
 
 ### Password Security
 - **NEVER** store passwords in plain text
-- Always use `user.set_password(password)` to hash passwords with Werkzeug
+- Always use `user.set_password(password)` to hash passwords with PBKDF2-SHA256
 - Verify passwords with `user.check_password(password)`
 - Password complexity enforcement should be added client-side and server-side
 

@@ -210,7 +210,7 @@ docker-compose run --rm client
 
 - **Development Mode**: Verification codes are printed to console
 - **Production Mode**: Configure SMTP to send real emails
-- **Passwords**: Automatically hashed using Werkzeug
+- **Passwords**: Automatically hashed using PBKDF2-SHA256 (Python standard library)
 - **Database**: SQLite by default (configure DATABASE_URL for production)
 
 ## 🆘 Troubleshooting

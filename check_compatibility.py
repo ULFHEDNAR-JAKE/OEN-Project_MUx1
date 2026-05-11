@@ -19,7 +19,7 @@ def check_flask_compatibility(file_path):
     # Check for deprecated __version__ usage
     if '__version__' in content and 'flask' in content.lower():
         for i, line in enumerate(lines, 1):
-            if '__version__' in line and ('flask' in line.lower() or 'werkzeug' in line.lower()):
+            if '__version__' in line and 'flask' in line.lower():
                 issues.append({
                     'file': file_path,
                     'line': i,
@@ -49,20 +49,6 @@ def check_flask_cors_compatibility(file_path):
                     'message': 'CORS allows all origins (*)',
                     'suggestion': 'Consider restricting origins in production'
                 })
-    
-    return issues
-
-def check_werkzeug_compatibility(file_path):
-    """Check for Werkzeug 3.1.3 compatibility issues"""
-    issues = []
-    
-    with open(file_path, 'r') as f:
-        content = f.read()
-    
-    # Check for password hashing usage (should still work)
-    if 'generate_password_hash' in content or 'check_password_hash' in content:
-        # These functions are still compatible
-        pass
     
     return issues
 
@@ -96,7 +82,6 @@ def scan_python_files(root_dir):
                 issues = []
                 issues.extend(check_flask_compatibility(file_path))
                 issues.extend(check_flask_cors_compatibility(file_path))
-                issues.extend(check_werkzeug_compatibility(file_path))
                 issues.extend(check_socketio_compatibility(file_path))
                 
                 all_issues.extend(issues)

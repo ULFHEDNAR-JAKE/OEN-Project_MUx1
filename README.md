@@ -20,7 +20,7 @@ This repository is the active implementation of **ULFHEDNAR_JAKE's OEN-Project_M
 | Item | Details |
 |------|---------|
 | Project name | OEN-Project_MUx1 |
-| Maintainer/org | ULFHEDNAR-JAKE |
+| Maintainer/org | ULFHEDNAR_JAKE (GitHub: `ULFHEDNAR-JAKE`) |
 | Primary runtime | Python 3.11+ |
 | Server framework | Flask + Flask-SocketIO |
 | Data layer | SQLAlchemy ORM (SQLite dev / PostgreSQL prod) |

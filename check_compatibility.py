@@ -9,7 +9,7 @@ import os
 import sys
 
 def check_flask_compatibility(file_path):
-    """Check for Flask 3.1.2 compatibility issues"""
+    """Check for Flask 3.1.3 compatibility issues"""
     issues = []
     
     with open(file_path, 'r') as f:

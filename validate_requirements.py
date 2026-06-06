@@ -16,7 +16,7 @@ def validate_requirements(file_path):
     print()
     
     expected_packages = {
-        'Flask': '3.1.2',
+        'Flask': '3.1.3',
         'Flask-SocketIO': '5.5.1',
         'Flask-SQLAlchemy': '3.1.1',
         'Flask-CORS': '6.0.1',

@@ -8,7 +8,7 @@ All Python dependencies have been updated to their latest stable versions (Novem
 
 | Package | Before | After |
 |---------|--------|-------|
-| Flask | 3.0.0 | **3.1.2** |
+| Flask | 3.0.0 | **3.1.3** |
 | Flask-SocketIO | 5.3.5 | **5.5.1** |
 | Flask-CORS | 4.0.0 | **6.0.1** ⚠️ Major version |
 | python-socketio | 5.10.0 | **5.14.3** |

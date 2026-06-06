@@ -10,7 +10,7 @@ The following dependencies were updated to their latest stable versions:
 
 | Package | Old Version | New Version | Notes |
 |---------|-------------|-------------|-------|
-| Flask | 3.0.0 | 3.1.2 | Minor version update with bug fixes and improvements |
+| Flask | 3.0.0 | 3.1.3 | Minor version update with bug fixes and improvements |
 | Flask-SocketIO | 5.3.5 | 5.5.1 | Minor version update with improved Socket.IO support |
 | Flask-SQLAlchemy | 3.1.1 | 3.1.1 | No change (already latest) |
 | Flask-CORS | 4.0.0 | 6.0.1 | Major version update - review CORS configuration |
@@ -63,7 +63,7 @@ The Flask-CORS package was updated from 4.0.0 to 6.0.1, which is a major version
   CORS(app, origins=["https://yourdomain.com"])
   ```
 
-### Flask 3.1.2
+### Flask 3.1.3
 
 - Deprecation warnings for `__version__` attribute have been formalized
 - Use `importlib.metadata.version("flask")` for version detection

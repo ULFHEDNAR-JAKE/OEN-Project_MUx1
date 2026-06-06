@@ -5,7 +5,7 @@
 OEN-Project_MUx1 is a comprehensive client-server authentication system with email verification, supporting both HTTP REST API and Socket.IO real-time communication. The application includes SSH tunnel support for secure remote access and Docker integration for seamless deployment.
 
 **Tech Stack:**
-- **Backend**: Flask 3.1.2, Flask-SocketIO 5.5.1, SQLAlchemy 3.1.1
+- **Backend**: Flask 3.1.3, Flask-SocketIO 5.5.1, SQLAlchemy 3.1.1
 - **Database**: SQLite (dev) / PostgreSQL (prod)
 - **Authentication**: Werkzeug password hashing, email verification codes
 - **Real-time**: Socket.IO with bidirectional messaging

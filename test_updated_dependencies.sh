@@ -48,7 +48,7 @@ python3 << 'EOF'
 import sys
 
 expected_versions = {
-    'Flask': '3.1.2',
+    'Flask': '3.1.3',
     'Flask-SocketIO': '5.5.1',
     'Flask-SQLAlchemy': '3.1.1',
     'Flask-Cors': '6.0.1',

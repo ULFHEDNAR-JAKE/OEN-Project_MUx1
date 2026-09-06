@@ -23,7 +23,7 @@ def validate_requirements(file_path):
         'python-socketio': '5.14.3',
         'Werkzeug': '3.1.3',
         'requests': '2.32.5',
-        'python-engineio': '4.12.3'
+        'python-engineio': '4.13.2'
     }
     
     all_valid = True

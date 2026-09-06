@@ -54,7 +54,7 @@ Think of it as the back-end engine for a text-based online game or interactive s
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.9+ (CI validates 3.9, 3.10, and 3.11; Flask 3.1.x does not support 3.8)
 - Docker and Docker Compose (for containerized deployment)
 - SSH access (for SSH tunnel functionality)
 
